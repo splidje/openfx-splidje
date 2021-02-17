@@ -1,6 +1,15 @@
 # AJPTechnical OpenFX Effects
 Various OpenFX Effects. Only just started this.
 
+## PatchMatch
+
+Attempting to implement the algorithm described here:
+https://gfx.cs.princeton.edu/pubs/Barnes_2009_PAR/
+
+The node outputs vectors in RG (ignore B) describing the offset from which to get pixels from source to match target.
+
+This means the node can be plugged into the UV input of an IDistort, with the source plugged into the source input, and the result should look something like target (using IDistort to distort the pixels in source to look like target).
+
 ## MeshWarp
 
 Not sure if this is the right name. So far this is the only effect, and has only just been started.
