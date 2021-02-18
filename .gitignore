@@ -1,2 +1,7 @@
-Bundle/
+Bundle/Linux-64-debug
 .vscode
+
+*.jpeg
+*.png
+*.mp4
+*.ntp*

@@ -32,6 +32,10 @@ using namespace OFX;
 #define kParamIterationsLabel "Iterations"
 #define kParamIterationsHint "Iterations"
 
+#define kParamSimilarityThreshold "similarityThreshold"
+#define kParamSimilarityThresholdLabel "Similarity Threshold"
+#define kParamSimilarityThresholdHint "Similarity Threshold"
+
 #define kParamRandomSeed "seed"
 #define kParamRandomSeedLabel "Random Seed"
 #define kParamRandomSeedHint "Random Seed"
@@ -103,12 +107,15 @@ private:
 
     SimpleImage* resample(const Image* image, double scale);
     SimpleImage* initialiseLevel(SimpleImage* imgSrc, SimpleImage* imgTrg
-                                ,SimpleImage* imgHint, int patchSize);
+                                ,SimpleImage* imgHint
+                                ,int patchSize, float threshold);
     void propagateAndSearch(SimpleImage* imgVect, SimpleImage* imgSrc
-                           ,SimpleImage* imgTrg, int patchSize, int iterationNum
-                           ,int length);
+                           ,SimpleImage* imgTrg
+                           ,int patchSize, float threshold
+                           ,int iterationNum, int length);
     void score(int xSrc, int ySrc, int xTrg, int yTrg
-                ,SimpleImage* imgSrc, SimpleImage* imgTrg, int patchSize, float* best);
+                ,SimpleImage* imgSrc, SimpleImage* imgTrg
+                ,int patchSize, float threshold, float* best);
 
 private:
     // do not need to delete these, the ImageEffect is managing them for us
@@ -119,6 +126,7 @@ private:
     IntParam* _endLevel;
     IntParam* _startLevel;
     DoubleParam* _iterations;
+    DoubleParam* _similarityThreshold;
     IntParam* _randomSeed;
 };
 

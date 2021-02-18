@@ -94,6 +94,15 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         }
     }
     {
+        auto param = desc.defineDoubleParam(kParamSimilarityThreshold);
+        param->setLabel(kParamSimilarityThresholdLabel);
+        param->setHint(kParamSimilarityThresholdHint);
+        param->setDefault(0);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
         IntParamDescriptor* param = desc.defineIntParam(kParamRandomSeed);
         param->setLabel(kParamRandomSeedLabel);
         param->setHint(kParamRandomSeedHint);
