@@ -1,5 +1,5 @@
 SUBDIRS = Bundle
-SUBDIRS_NOMULTI = MeshWarp
+SUBDIRS_NOMULTI = MeshWarp PatchMatch
 
 all: subdirs
 
