@@ -32,6 +32,10 @@ using namespace OFX;
 #define kParamIterationsLabel "Iterations"
 #define kParamIterationsHint "Iterations"
 
+#define kParamAcceptableScore "acceptableScore"
+#define kParamAcceptableScoreLabel "Acceptable Score"
+#define kParamAcceptableScoreHint "Acceptable Score"
+
 #define kParamSimilarityThreshold "similarityThreshold"
 #define kParamSimilarityThresholdLabel "Similarity Threshold"
 #define kParamSimilarityThresholdHint "Similarity Threshold"
@@ -39,6 +43,10 @@ using namespace OFX;
 #define kParamRandomSeed "seed"
 #define kParamRandomSeedLabel "Random Seed"
 #define kParamRandomSeedHint "Random Seed"
+
+#define kParamLogCoords "logCoords"
+#define kParamLogCoordsLabel "Log Coords"
+#define kParamLogCoordsHint "Log Coords"
 
 class SimpleImage {
 public:
@@ -109,7 +117,7 @@ private:
     SimpleImage* initialiseLevel(SimpleImage* imgSrc, SimpleImage* imgTrg
                                 ,SimpleImage* imgHint
                                 ,int patchSize, float threshold);
-    void propagateAndSearch(SimpleImage* imgVect, SimpleImage* imgSrc
+    bool propagateAndSearch(SimpleImage* imgVect, SimpleImage* imgSrc
                            ,SimpleImage* imgTrg
                            ,int patchSize, float threshold
                            ,int iterationNum, int length);
@@ -126,8 +134,13 @@ private:
     IntParam* _endLevel;
     IntParam* _startLevel;
     DoubleParam* _iterations;
+    DoubleParam* _acceptableScore;
     DoubleParam* _similarityThreshold;
     IntParam* _randomSeed;
+    Int2DParam* _logCoords;
+    double _curAcceptableScore;
+    OfxPointI _curLogCoords;
+    bool _finalLevel;
 };
 
 inline int boundsWidth(const OfxRectI& bounds) {return bounds.x2 - bounds.x1;}

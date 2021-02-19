@@ -94,6 +94,15 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         }
     }
     {
+        auto param = desc.defineDoubleParam(kParamAcceptableScore);
+        param->setLabel(kParamAcceptableScoreLabel);
+        param->setHint(kParamAcceptableScoreHint);
+        param->setDefault(0);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
         auto param = desc.defineDoubleParam(kParamSimilarityThreshold);
         param->setLabel(kParamSimilarityThresholdLabel);
         param->setHint(kParamSimilarityThresholdHint);
@@ -109,6 +118,17 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         param->setDefault(0);
         if (page) {
             page->addChild(*param);
+        }
+    }
+
+    PageParamDescriptor *pageAnal = desc.definePageParam("Analysis");
+    {
+        auto param = desc.defineInt2DParam(kParamLogCoords);
+        param->setLabel(kParamLogCoordsLabel);
+        param->setHint(kParamLogCoordsHint);
+        param->setDefault(-1, -1);
+        if (pageAnal) {
+            pageAnal->addChild(*param);
         }
     }
 }
