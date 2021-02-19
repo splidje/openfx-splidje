@@ -5,3 +5,5 @@ Bundle/Linux-64-debug
 *.png
 *.mp4
 *.ntp*
+
+PatchMatch/seagull_vects_v001/

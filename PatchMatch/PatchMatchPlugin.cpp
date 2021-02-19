@@ -17,8 +17,10 @@ PatchMatchPlugin::PatchMatchPlugin(OfxImageEffectHandle handle)
     _startLevel = fetchIntParam(kParamStartLevel);
     _endLevel = fetchIntParam(kParamEndLevel);
     _iterations = fetchDoubleParam(kParamIterations);
+    _acceptableScore = fetchDoubleParam(kParamAcceptableScore);
     _similarityThreshold = fetchDoubleParam(kParamSimilarityThreshold);
     _randomSeed = fetchIntParam(kParamRandomSeed);
+    _logCoords = fetchInt2DParam(kParamLogCoords);
 }
 
 // the overridden render function
@@ -42,19 +44,18 @@ void PatchMatchPlugin::render(const RenderArguments &args)
     );
 
     auto iterations = _iterations->getValueAtTime(args.time);
-    auto similarityThreshold = (
-        _similarityThreshold->getValueAtTime(args.time)
-        * patchSize * patchSize
-        * std::min(
-            srcA->getPixelComponentCount()
-            ,srcB->getPixelComponentCount()
-        )
-    );
+    auto similarityThreshold = _similarityThreshold->getValueAtTime(args.time);
+
+    _curAcceptableScore = _acceptableScore->getValueAtTime(args.time);
+
+    _curLogCoords = _logCoords->getValueAtTime(args.time);
 
     double scale = 1;
     for (int l=numLevels; l > startLevel; l--) {scale *= 0.5;}
     auto_ptr<SimpleImage> imgVect;
     for (int level=startLevel; level <= endLevel; level++, scale *= 2) {
+        _finalLevel = level == endLevel;
+
         // resample input images
         auto_ptr<SimpleImage> imgA(resample(srcA.get(), scale));
         if (abort()) {return;}
@@ -75,10 +76,10 @@ void PatchMatchPlugin::render(const RenderArguments &args)
             if (level == endLevel && i + 1 > iterations) {
                 len = iterationLength;
             }
-            propagateAndSearch(
+            if (propagateAndSearch(
                 imgVect.get(), imgA.get(), imgB.get()
                 ,patchSize, similarityThreshold, i, len
-            );
+            )) {break;}
             if (abort()) {return;}
         }
     }
@@ -302,7 +303,7 @@ SimpleImage* PatchMatchPlugin::initialiseLevel(SimpleImage* imgSrc, SimpleImage*
     return img;
 }
 
-void PatchMatchPlugin::propagateAndSearch(SimpleImage* imgVect, SimpleImage* imgSrc
+bool PatchMatchPlugin::propagateAndSearch(SimpleImage* imgVect, SimpleImage* imgSrc
                                          ,SimpleImage* imgTrg
                                          ,int patchSize, float threshold
                                          ,int iterationNum, int length)
@@ -310,10 +311,11 @@ void PatchMatchPlugin::propagateAndSearch(SimpleImage* imgVect, SimpleImage* img
     int count = 0;
     int dir = iterationNum % 2 ? -1 : 1;
     int x, y;
+    bool allAcceptable = true;
     for (int yi=0; yi < imgVect->height; yi++) {
-        if (abort()) {return;}
+        if (abort()) {return allAcceptable;}
         for (int xi=0; xi < imgVect->width; xi++, count++) {
-            if (length && count == length) {return;}
+            if (length && count == length) {return allAcceptable;}
 
             if (dir < 0) {
                 x = imgVect->width - 1 - xi;
@@ -326,6 +328,8 @@ void PatchMatchPlugin::propagateAndSearch(SimpleImage* imgVect, SimpleImage* img
 
             // propagate
             auto cur = imgVect->pix(x, y);
+            if (cur[2] <= _curAcceptableScore) {continue;}
+            allAcceptable = false;
             auto left = imgVect->vect(x - dir, y);
             score(
                 x + left.x, y + left.y, x, y, imgSrc, imgTrg
@@ -358,7 +362,7 @@ void PatchMatchPlugin::propagateAndSearch(SimpleImage* imgVect, SimpleImage* img
             }
         }
     }
-    return;
+    return allAcceptable;
 }
 
 inline void distSq(int dX, int dY, int &dSq)
@@ -386,6 +390,13 @@ void PatchMatchPlugin::score(int xSrc, int ySrc, int xTrg, int yTrg
                               ,int patchSize, float threshold, float* best)
 {
     if (!imgSrc->valid(xSrc, ySrc)) {
+        if (_finalLevel
+            && _curLogCoords.x == xTrg
+            && _curLogCoords.y == yTrg
+        ) {
+            std::cout << xTrg << "," << yTrg << "-" << xSrc << "," << ySrc
+                << ": src invalid" << std::endl;
+        }
         return;
     }
     int components = std::min(imgSrc->components, imgTrg->components);
@@ -398,7 +409,7 @@ void PatchMatchPlugin::score(int xSrc, int ySrc, int xTrg, int yTrg
     int bestVY;
     auto bestTotal = best[2];
     bool haveBest = bestTotal >= 0;
-    float upLim, lowLim;
+    float upLim = -1, lowLim = -1;
     int dSq = -1;
     int dSqBest = -1;
     bool reachedThreshold = false;
@@ -430,8 +441,18 @@ void PatchMatchPlugin::score(int xSrc, int ySrc, int xTrg, int yTrg
                                     ,vX, vY, bestVX, bestVY
                                     ,reachedThreshold
                                     ,dSq, dSqBest)
-                ) {return;}
-
+                ) {
+                    if (_finalLevel
+                        && _curLogCoords.x == xTrg
+                        && _curLogCoords.y == yTrg
+                    ) {
+                        std::cout << xTrg << "," << yTrg << "-" << xSrc << "," << ySrc
+                            << ": give up at " << total
+                            << " (" << lowLim << "," << upLim << ") "
+                            << " (" << dSq << " " << dSqBest << ")" << std::endl;
+                    }
+                    return;
+                }
             }
             count++;
         }
@@ -446,8 +467,27 @@ void PatchMatchPlugin::score(int xSrc, int ySrc, int xTrg, int yTrg
                         ,vX, vY, bestVX, bestVY
                         ,reachedThreshold
                         ,dSq, dSqBest)
-    ) {return;}
+    ) {
+        if (_finalLevel
+            && _curLogCoords.x == xTrg
+            && _curLogCoords.y == yTrg
+        ) {
+            std::cout << xTrg << "," << yTrg << "-" << xSrc << "," << ySrc
+                << ": lose " << total
+                << " (" << lowLim << "," << upLim << ")"
+                << " (" << dSq << " " << dSqBest << ")" << std::endl;
+        }
+        return;
+    }
     best[0] = vX;
     best[1] = vY;
     best[2] = total;
+    if (_finalLevel
+        && _curLogCoords.x == xTrg
+        && _curLogCoords.y == yTrg
+    ) {
+        std::cout << xTrg << "," << yTrg << "-" << xSrc << "," << ySrc
+            << ": win! " << total
+            << " (" << lowLim << "," << upLim << ")" << std::endl;
+    }
 }
