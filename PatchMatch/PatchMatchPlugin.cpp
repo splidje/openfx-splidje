@@ -18,9 +18,8 @@ PatchMatchPlugin::PatchMatchPlugin(OfxImageEffectHandle handle)
     _endLevel = fetchIntParam(kParamEndLevel);
     _iterations = fetchDoubleParam(kParamIterations);
     _acceptableScore = fetchDoubleParam(kParamAcceptableScore);
-    _similarityThreshold = fetchDoubleParam(kParamSimilarityThreshold);
+    _radicalImpairmentWeight = fetchDoubleParam(kParamRadicalImpairmentWeight);
     _randomSeed = fetchIntParam(kParamRandomSeed);
-    _logCoords = fetchInt2DParam(kParamLogCoords);
 }
 
 // the overridden render function
@@ -33,7 +32,7 @@ void PatchMatchPlugin::render(const RenderArguments &args)
 
     std::srand(_randomSeed->getValueAtTime(args.time));
 
-    auto patchSize = _patchSize->getValueAtTime(args.time);
+    _curPatchSize = _patchSize->getValueAtTime(args.time);
 
     auto numLevels = calculateNumLevelsAtTime(args.time);
     auto startLevel = std::max(
@@ -44,47 +43,49 @@ void PatchMatchPlugin::render(const RenderArguments &args)
     );
 
     auto iterations = _iterations->getValueAtTime(args.time);
-    auto similarityThreshold = _similarityThreshold->getValueAtTime(args.time);
 
     _curAcceptableScore = _acceptableScore->getValueAtTime(args.time);
 
-    _curLogCoords = _logCoords->getValueAtTime(args.time);
+    _curRIW = _radicalImpairmentWeight->getValueAtTime(args.time);
+
+    auto bA = srcA->getRegionOfDefinition();
+    auto bB = srcB->getRegionOfDefinition();
+
+    auto widthA = boundsWidth(bA);
+    auto heightA = boundsHeight(bA);
+    _maxDistSq = widthA * widthA + heightA * heightA;
 
     double scale = 1;
     for (int l=numLevels; l > startLevel; l--) {scale *= 0.5;}
     auto_ptr<SimpleImage> imgVect;
     for (int level=startLevel; level <= endLevel; level++, scale *= 2) {
-        _finalLevel = level == endLevel;
-
         // resample input images
         auto_ptr<SimpleImage> imgA(resample(srcA.get(), scale));
         if (abort()) {return;}
         auto_ptr<SimpleImage> imgB(resample(srcB.get(), scale));
         if (abort()) {return;}
 
-        // initialise        
-        imgVect.reset(initialiseLevel(
-            imgA.get(), imgB.get(), imgVect.get()
-            ,patchSize, similarityThreshold
-        ));
+        _curImgSrc = imgA.get();
+        _curImgTrg = imgB.get();
+
+        // initialise
+        imgVect.reset(initialiseLevel(imgVect.get()));
         if (abort()) {return;}
+
+        _curImgVect = imgVect.get();
 
         // iterate propagate and search
         int iterationLength = (iterations - floor(iterations)) * imgB->width * imgB->height;
         for (int i=0; i < iterations; i++) {
-            int len = 0;
+            _curIterationNum = i;
+            _curLength = 0;
             if (level == endLevel && i + 1 > iterations) {
-                len = iterationLength;
+                _curLength = iterationLength;
             }
-            if (propagateAndSearch(
-                imgVect.get(), imgA.get(), imgB.get()
-                ,patchSize, similarityThreshold, i, len
-            )) {break;}
+            if (propagateAndSearch()) {break;}
             if (abort()) {return;}
         }
     }
-    auto bA = srcA->getRegionOfDefinition();
-    auto bB = srcB->getRegionOfDefinition();
     auto offX = bA.x1 - bB.x1;
     auto offY = bA.y1 - bB.y1;
     srcA.reset();
@@ -255,11 +256,11 @@ SimpleImage* PatchMatchPlugin::resample(const Image* image, double scale)
     return simg;
 }
 
-SimpleImage* PatchMatchPlugin::initialiseLevel(SimpleImage* imgSrc, SimpleImage* imgTrg
-                                              ,SimpleImage* imgPrev
-                                              ,int patchSize, float threshold)
+SimpleImage* PatchMatchPlugin::initialiseLevel(SimpleImage* imgPrev)
 {
-    auto img = new SimpleImage(imgTrg->width, imgTrg->height, 3);
+    auto img = new SimpleImage(
+        _curImgTrg->width, _curImgTrg->height, 4
+    );
     auto dataPix = img->data;
     int prevStepX, prevStepY;
     float* prevRow;
@@ -275,18 +276,15 @@ SimpleImage* PatchMatchPlugin::initialiseLevel(SimpleImage* imgSrc, SimpleImage*
         }
         auto prevCell = prevRow;
         for (int x=0, pX=0; x < img->width; x++) {
-            dataPix[0] = rand() % imgSrc->width - x;
-            dataPix[1] = rand() % imgSrc->height - y;
+            dataPix[0] = rand() % _curImgSrc->width - x;
+            dataPix[1] = rand() % _curImgSrc->height - y;
             dataPix[2] = -1;
-            score(x + dataPix[0], y + dataPix[1], x, y, imgSrc, imgTrg
-                ,patchSize, threshold, dataPix);
+            dataPix[3] = -1;
+            score(x + dataPix[0], y + dataPix[1], x, y, dataPix);
             if (imgPrev) {
                 score(
                     x + prevCell[0], y + prevCell[1]
-                    ,x, y
-                    ,imgSrc, imgTrg
-                    ,patchSize, threshold
-                    ,dataPix
+                    ,x, y, dataPix
                 );
                 if (x % prevStepX && pX < imgPrev->width) {
                     pX++;
@@ -303,47 +301,57 @@ SimpleImage* PatchMatchPlugin::initialiseLevel(SimpleImage* imgSrc, SimpleImage*
     return img;
 }
 
-bool PatchMatchPlugin::propagateAndSearch(SimpleImage* imgVect, SimpleImage* imgSrc
-                                         ,SimpleImage* imgTrg
-                                         ,int patchSize, float threshold
-                                         ,int iterationNum, int length)
+bool PatchMatchPlugin::propagateAndSearch()
 {
     int count = 0;
-    int dir = iterationNum % 2 ? -1 : 1;
+    int dir = _curIterationNum % 2 ? -1 : 1;
     int x, y;
     bool allAcceptable = true;
-    for (int yi=0; yi < imgVect->height; yi++) {
+    for (int yi=0; yi < _curImgVect->height; yi++) {
         if (abort()) {return allAcceptable;}
-        for (int xi=0; xi < imgVect->width; xi++, count++) {
-            if (length && count == length) {return allAcceptable;}
+        for (int xi=0; xi < _curImgVect->width; xi++, count++) {
+            if (_curLength && count == _curLength) {return allAcceptable;}
 
             if (dir < 0) {
-                x = imgVect->width - 1 - xi;
-                y = imgVect->height - 1 - yi;
+                x = _curImgVect->width - 1 - xi;
+                y = _curImgVect->height - 1 - yi;
             }
             else {
                 x = xi;
                 y = yi;
             }
 
-            // propagate
-            auto cur = imgVect->pix(x, y);
-            if (cur[2] <= _curAcceptableScore) {continue;}
+            // get neighbours
+
+            auto cur = _curImgVect->pix(x, y);
+            if (cur[2] >= 0 && cur[2] <= _curAcceptableScore) {continue;}
             allAcceptable = false;
-            auto left = imgVect->vect(x - dir, y);
+            auto left = _curImgVect->vect(x - dir, y);
+            auto down = _curImgVect->vect(x, y - dir);
+
+            auto leftRX = left.x - dir;
+            auto downRY = down.y - dir;
+            float hypVX_2 = (down.x - leftRX) / 2;
+            float hypVY_2 = (downRY - left.y) / 2;
+            int idealX = round(leftRX + hypVX_2 - hypVY_2);
+            int idealY = round(left.y + hypVY_2 + hypVX_2);
+            // std::cout << left.x << "," << left.y
+            //     << " " << down.x << "," << down.y << " " << dir
+            //     << " " << idealX << "," << idealY << std::endl;
+
+            // propagate
             score(
-                x + left.x, y + left.y, x, y, imgSrc, imgTrg
-                ,patchSize, threshold, cur
+                x + left.x, y + left.y, x, y
+                ,cur, true, idealX, idealY
             );
-            auto up = imgVect->vect(x, y - dir);
             score(
-                x + up.x, y + up.y, x, y, imgSrc, imgTrg
-                ,patchSize, threshold, cur
+                x + down.x, y + down.y, x, y
+                ,cur, true, idealX, idealY
             );
 
             // search
-            double radW = imgSrc->width / 2.0;
-            double radH = imgSrc->height / 2.0;
+            double radW = _curImgSrc->width / 2.0;
+            double radH = _curImgSrc->height / 2.0;
             int srchCentX = x + cur[0];
             int srchCentY = y + cur[1];
             for (; radW >= 1 && radH >= 1; radW /= 2, radH /= 2) {
@@ -351,13 +359,13 @@ bool PatchMatchPlugin::propagateAndSearch(SimpleImage* imgVect, SimpleImage* img
                 int radHi = ceil(radH);
                 auto l = std::max(0, srchCentX - radWi);
                 auto b = std::max(0, srchCentY - radHi);
-                auto w = std::min(imgSrc->width, srchCentX + radWi + 1) - l;
-                auto h = std::min(imgSrc->height, srchCentY + radHi + 1) - b;
+                auto w = std::min(_curImgSrc->width, srchCentX + radWi + 1) - l;
+                auto h = std::min(_curImgSrc->height, srchCentY + radHi + 1) - b;
                 auto sX = rand() % w + l;
                 auto sY = rand() % h + b;
                 score(
-                    sX, sY, x, y, imgSrc, imgTrg
-                    ,patchSize, threshold, cur
+                    sX, sY, x, y
+                    ,cur, true, idealX, idealY
                 );
             }
         }
@@ -371,54 +379,32 @@ inline void distSq(int dX, int dY, int &dSq)
     dSq = dX*dX + dY*dY;
 }
 
-inline bool scoreCarryOn(float total, float lowLim, float upLim
-                        ,int vX, int vY, int bestVX, int bestVY
-                        ,bool &reachedThreshold, int &dSq, int &dSqBest)
-{
-    if (total > upLim) {return false;}
-    if (!reachedThreshold && total >= lowLim) {
-        reachedThreshold = true;
-        distSq(vX, vY, dSq);
-        distSq(bestVX, bestVY, dSqBest);
-        if (dSqBest <= dSq) {return false;}
-    }
-    return true;
-}
-
 void PatchMatchPlugin::score(int xSrc, int ySrc, int xTrg, int yTrg
-                              ,SimpleImage* imgSrc, SimpleImage* imgTrg
-                              ,int patchSize, float threshold, float* best)
+                            ,float* best
+                            ,bool haveIdeal, int idealX, int idealY)
 {
-    if (!imgSrc->valid(xSrc, ySrc)) {
-        if (_finalLevel
-            && _curLogCoords.x == xTrg
-            && _curLogCoords.y == yTrg
-        ) {
-            std::cout << xTrg << "," << yTrg << "-" << xSrc << "," << ySrc
-                << ": src invalid" << std::endl;
-        }
-        return;
-    }
-    int components = std::min(imgSrc->components, imgTrg->components);
+    if (!_curImgSrc->valid(xSrc, ySrc)) {return;}
+    int components = std::min(_curImgSrc->components, _curImgTrg->components);
     float total = 0;
     int count = 0;
-    auto pOff = (patchSize-1) >> 1;
-    int vX = xSrc - xTrg;
-    int vY = ySrc - yTrg;
-    int bestVX;
-    int bestVY;
+    auto pOff = (_curPatchSize-1) >> 1;
+
+    double impairment = 0;
     auto bestTotal = best[2];
-    bool haveBest = bestTotal >= 0;
-    float upLim = -1, lowLim = -1;
-    int dSq = -1;
-    int dSqBest = -1;
-    bool reachedThreshold = false;
-    if (haveBest) {
-        bestVX = best[0];
-        bestVY = best[1];
-        upLim = bestTotal + threshold;
-        lowLim = bestTotal - threshold;
+    auto haveBest = bestTotal >= 0;
+    if (!haveBest) {
+        bestTotal = MAXFLOAT;
+    } else if (haveIdeal) {
+        auto bestRadX = xTrg + best[0] - idealX;
+        auto bestRadY = yTrg + best[1] - idealY;
+        bestTotal += _curRIW * (bestRadX*bestRadX + bestRadY*bestRadY) / _maxDistSq;
+        auto radX = xSrc - idealX;
+        auto radY = ySrc - idealY;
+        impairment = _curRIW * (radX*radX + radY*radY) / _maxDistSq;
+        total = impairment;
+        best[3] = impairment;
     }
+
     for (int yOff=-pOff; yOff <= pOff; yOff++) {
         for (int xOff=-pOff; xOff <= pOff; xOff++) {
             auto xxTrg = xTrg + xOff;
@@ -426,68 +412,26 @@ void PatchMatchPlugin::score(int xSrc, int ySrc, int xTrg, int yTrg
             auto xxSrc = xSrc + xOff;
             auto yySrc = ySrc + yOff;
             if (
-                !imgSrc->valid(xxSrc, yySrc)
-                || !imgTrg->valid(xxTrg, yyTrg)
+                !_curImgSrc->valid(xxSrc, yySrc)
+                || !_curImgTrg->valid(xxTrg, yyTrg)
             ) {continue;}
-            auto pixSrc = imgSrc->pix(xxSrc, yySrc);
-            auto pixTrg = imgTrg->pix(xxTrg, yyTrg);
+            auto pixSrc = _curImgSrc->pix(xxSrc, yySrc);
+            auto pixTrg = _curImgTrg->pix(xxTrg, yyTrg);
             for (int c=0; c < components; c++, pixSrc++, pixTrg++) {
                 auto diff = *pixTrg - *pixSrc;
                 if (diff < 0) {total -= diff;}
                 else {total += diff;}
-                if (
-                    haveBest
-                    && !scoreCarryOn(total, lowLim, upLim
-                                    ,vX, vY, bestVX, bestVY
-                                    ,reachedThreshold
-                                    ,dSq, dSqBest)
-                ) {
-                    if (_finalLevel
-                        && _curLogCoords.x == xTrg
-                        && _curLogCoords.y == yTrg
-                    ) {
-                        std::cout << xTrg << "," << yTrg << "-" << xSrc << "," << ySrc
-                            << ": give up at " << total
-                            << " (" << lowLim << "," << upLim << ") "
-                            << " (" << dSq << " " << dSqBest << ")" << std::endl;
-                    }
-                    return;
-                }
+                if (total >= bestTotal) {return;}
             }
             count++;
         }
     }
-    auto maxCount = patchSize * patchSize;
+    auto maxCount = _curPatchSize * _curPatchSize;
     if (count < maxCount) {
         total *= maxCount / double(count);
     }
-    if (
-        haveBest
-        && !scoreCarryOn(total, lowLim, upLim
-                        ,vX, vY, bestVX, bestVY
-                        ,reachedThreshold
-                        ,dSq, dSqBest)
-    ) {
-        if (_finalLevel
-            && _curLogCoords.x == xTrg
-            && _curLogCoords.y == yTrg
-        ) {
-            std::cout << xTrg << "," << yTrg << "-" << xSrc << "," << ySrc
-                << ": lose " << total
-                << " (" << lowLim << "," << upLim << ")"
-                << " (" << dSq << " " << dSqBest << ")" << std::endl;
-        }
-        return;
-    }
-    best[0] = vX;
-    best[1] = vY;
-    best[2] = total;
-    if (_finalLevel
-        && _curLogCoords.x == xTrg
-        && _curLogCoords.y == yTrg
-    ) {
-        std::cout << xTrg << "," << yTrg << "-" << xSrc << "," << ySrc
-            << ": win! " << total
-            << " (" << lowLim << "," << upLim << ")" << std::endl;
-    }
+    if (total >= bestTotal) {return;}
+    best[0] = xSrc - xTrg;
+    best[1] = ySrc - yTrg;
+    best[2] = total - impairment;
 }
