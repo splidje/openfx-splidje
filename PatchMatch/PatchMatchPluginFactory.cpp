@@ -50,7 +50,7 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
 
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
-    dstClip->addSupportedComponent(ePixelComponentRGB);
+    dstClip->addSupportedComponent(ePixelComponentRGBA);
     dstClip->setSupportsTiles(true);
     
     PageParamDescriptor *page = desc.definePageParam("Controls");
@@ -103,9 +103,9 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         }
     }
     {
-        auto param = desc.defineDoubleParam(kParamSimilarityThreshold);
-        param->setLabel(kParamSimilarityThresholdLabel);
-        param->setHint(kParamSimilarityThresholdHint);
+        auto param = desc.defineDoubleParam(kParamRadicalImpairmentWeight);
+        param->setLabel(kParamRadicalImpairmentWeightLabel);
+        param->setHint(kParamRadicalImpairmentWeightHint);
         param->setDefault(0);
         if (page) {
             page->addChild(*param);
@@ -118,17 +118,6 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         param->setDefault(0);
         if (page) {
             page->addChild(*param);
-        }
-    }
-
-    PageParamDescriptor *pageAnal = desc.definePageParam("Analysis");
-    {
-        auto param = desc.defineInt2DParam(kParamLogCoords);
-        param->setLabel(kParamLogCoordsLabel);
-        param->setHint(kParamLogCoordsHint);
-        param->setDefault(-1, -1);
-        if (pageAnal) {
-            pageAnal->addChild(*param);
         }
     }
 }

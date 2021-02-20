@@ -36,17 +36,13 @@ using namespace OFX;
 #define kParamAcceptableScoreLabel "Acceptable Score"
 #define kParamAcceptableScoreHint "Acceptable Score"
 
-#define kParamSimilarityThreshold "similarityThreshold"
-#define kParamSimilarityThresholdLabel "Similarity Threshold"
-#define kParamSimilarityThresholdHint "Similarity Threshold"
+#define kParamRadicalImpairmentWeight "radicalImpairmentWeight"
+#define kParamRadicalImpairmentWeightLabel "Radical Impairment Weight"
+#define kParamRadicalImpairmentWeightHint "Radical Impairment Weight"
 
 #define kParamRandomSeed "seed"
 #define kParamRandomSeedLabel "Random Seed"
 #define kParamRandomSeedHint "Random Seed"
-
-#define kParamLogCoords "logCoords"
-#define kParamLogCoordsLabel "Log Coords"
-#define kParamLogCoordsHint "Log Coords"
 
 class SimpleImage {
 public:
@@ -114,16 +110,10 @@ private:
     int calculateNumLevelsAtTime(double time);
 
     SimpleImage* resample(const Image* image, double scale);
-    SimpleImage* initialiseLevel(SimpleImage* imgSrc, SimpleImage* imgTrg
-                                ,SimpleImage* imgHint
-                                ,int patchSize, float threshold);
-    bool propagateAndSearch(SimpleImage* imgVect, SimpleImage* imgSrc
-                           ,SimpleImage* imgTrg
-                           ,int patchSize, float threshold
-                           ,int iterationNum, int length);
-    void score(int xSrc, int ySrc, int xTrg, int yTrg
-                ,SimpleImage* imgSrc, SimpleImage* imgTrg
-                ,int patchSize, float threshold, float* best);
+    SimpleImage* initialiseLevel(SimpleImage* imgHint);
+    bool propagateAndSearch();
+    inline void score(int xSrc, int ySrc, int xTrg, int yTrg
+                     ,float* best, bool haveIdeal=false, int idealX=0, int idealY=0);
 
 private:
     // do not need to delete these, the ImageEffect is managing them for us
@@ -135,12 +125,16 @@ private:
     IntParam* _startLevel;
     DoubleParam* _iterations;
     DoubleParam* _acceptableScore;
-    DoubleParam* _similarityThreshold;
+    DoubleParam* _radicalImpairmentWeight;
     IntParam* _randomSeed;
-    Int2DParam* _logCoords;
+
+    SimpleImage* _curImgSrc;
+    SimpleImage* _curImgTrg;
+    SimpleImage* _curImgVect;
+    int _curPatchSize, _curIterationNum, _curLength;
     double _curAcceptableScore;
-    OfxPointI _curLogCoords;
-    bool _finalLevel;
+    double _curRIW;
+    double _maxDistSq;
 };
 
 inline int boundsWidth(const OfxRectI& bounds) {return bounds.x2 - bounds.x1;}
