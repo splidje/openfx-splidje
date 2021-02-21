@@ -1,4 +1,4 @@
-PLUGINOBJECTS = PatchMatchPluginFactory.o PatchMatchPlugin.o
+PLUGINOBJECTS = PatchMatchPluginFactory.o PatchMatchPlugin.o PatchMatcher.o
 PLUGINNAME = PatchMatch
 RESOURCES =
 

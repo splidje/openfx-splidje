@@ -28,31 +28,39 @@ void PatchMatchPluginFactory::describe(ImageEffectDescriptor &desc)
 
 void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, ContextEnum context)
 {
-    // Source clip A only in the filter context
     // create the mandated source clip
-    ClipDescriptor *srcAClip = desc.defineClip(kSourceAClip);
-    srcAClip->addSupportedComponent(ePixelComponentRGBA);
-    srcAClip->addSupportedComponent(ePixelComponentRGB);
-    srcAClip->addSupportedComponent(ePixelComponentAlpha);
-    srcAClip->setTemporalClipAccess(false);
-    srcAClip->setSupportsTiles(true);
-    srcAClip->setIsMask(false);
+    ClipDescriptor *srcClip = desc.defineClip(kSourceClip);
+    srcClip->addSupportedComponent(ePixelComponentRGBA);
+    srcClip->addSupportedComponent(ePixelComponentRGB);
+    srcClip->addSupportedComponent(ePixelComponentAlpha);
+    srcClip->setTemporalClipAccess(false);
+    srcClip->setSupportsTiles(true);
+    srcClip->setIsMask(false);
 
-    // Source clip B only in the filter context
-    // create the mandated source clip
-    ClipDescriptor *srcBClip = desc.defineClip(kSourceBClip);
-    srcBClip->addSupportedComponent(ePixelComponentRGBA);
-    srcBClip->addSupportedComponent(ePixelComponentRGB);
-    srcBClip->addSupportedComponent(ePixelComponentAlpha);
-    srcBClip->setTemporalClipAccess(false);
-    srcBClip->setSupportsTiles(true);
-    srcBClip->setIsMask(false);
+    // create the mandated target clip
+    ClipDescriptor *trgClip = desc.defineClip(kTargetClip);
+    trgClip->addSupportedComponent(ePixelComponentRGBA);
+    trgClip->addSupportedComponent(ePixelComponentRGB);
+    trgClip->addSupportedComponent(ePixelComponentAlpha);
+    trgClip->setTemporalClipAccess(false);
+    trgClip->setSupportsTiles(true);
+    trgClip->setIsMask(false);
 
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
     dstClip->addSupportedComponent(ePixelComponentRGBA);
     dstClip->setSupportsTiles(true);
-    
+
+    // create the optional initial clip
+    ClipDescriptor *initClip = desc.defineClip(kInitialClip);
+    initClip->setOptional(true);
+    initClip->addSupportedComponent(ePixelComponentRGBA);
+    initClip->addSupportedComponent(ePixelComponentRGB);
+    initClip->addSupportedComponent(ePixelComponentAlpha);
+    initClip->setTemporalClipAccess(false);
+    initClip->setSupportsTiles(true);
+    initClip->setIsMask(false);
+
     PageParamDescriptor *page = desc.definePageParam("Controls");
     {
         IntParamDescriptor* param = desc.defineIntParam(kParamPatchSize);
@@ -112,12 +120,32 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         }
     }
     {
+        auto param = desc.defineBooleanParam(kParamRadicalImpairmentSquared);
+        param->setLabel(kParamRadicalImpairmentSquaredLabel);
+        param->setHint(kParamRadicalImpairmentSquaredHint);
+        param->setDefault(kParamRadicalImpairmentSquaredDefault);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
         IntParamDescriptor* param = desc.defineIntParam(kParamRandomSeed);
         param->setLabel(kParamRandomSeedLabel);
         param->setHint(kParamRandomSeedHint);
         param->setDefault(0);
         if (page) {
             page->addChild(*param);
+        }
+    }
+
+    PageParamDescriptor *pageAnal = desc.definePageParam("Analysis");
+    {
+        auto param = desc.defineInt2DParam(kParamLogCoords);
+        param->setLabel(kParamLogCoordsLabel);
+        param->setHint(kParamLogCoordsHint);
+        param->setDefault(-1, -1);
+        if (pageAnal) {
+            pageAnal->addChild(*param);
         }
     }
 }
