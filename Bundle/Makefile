@@ -2,7 +2,7 @@ PLUGINNAME = AJPTechnical
 
 PLUGINOBJECTS = \
 MeshWarp.o\
-PatchMatchPluginFactory.o PatchMatchPlugin.o
+PatchMatchPluginFactory.o PatchMatchPlugin.o PatchMatcher.o
 
 SRCDIR = ..
 
