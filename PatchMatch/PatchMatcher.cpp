@@ -1,9 +1,6 @@
 #include "PatchMatcher.h"
 
 
-// TODO: struct representing different patch shapes (e.g. circle)
-
-
 PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args)
     : _plugin(plugin)
     , _renderArgs(args) {
@@ -23,14 +20,32 @@ PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args
     _logCoords = _plugin->logCoords->getValueAtTime(args.time);
     _logCoords.x /= args.renderScale.x;
     _logCoords.y /= args.renderScale.y;
-    // std::cout << args.renderScale.x << "," << args.renderScale.y << std::endl;
-    _patchSize = _plugin->patchSize->getValueAtTime(args.time);
+
+    // initialise patch
+    auto patchSize = _plugin->patchSize->getValueAtTime(args.time);
+    _patch.count = patchSize * patchSize;
+    _patch.offY = (patchSize-1) >> 1;
+    _patch.offXs = new int[patchSize];
+    _patch.endOffXs = _patch.offXs + patchSize;
+    auto r = _patch.offY + 0.5;
+    auto rSq = r*r;
+    for (int y=_patch.offY, *p=_patch.offXs; p < _patch.endOffXs; y--, p++) {
+        if (!y) {
+            *p = _patch.offY;
+        } else if (y > 0) {
+            *p = floor(sqrt(rSq - y*y));
+        } else {
+            *p = *(p + (y<<1));
+        }
+        std::cout << *p << std::endl;
+    }
+
     _numLevels = _plugin->calculateNumLevelsAtTime(args.time);
-    _startLevel = std::max(
-        1, std::min(_numLevels, _plugin->startLevel->getValueAtTime(args.time))
-    );
     _endLevel = std::max(
         1, std::min(_numLevels, _plugin->endLevel->getValueAtTime(args.time))
+    );
+    _startLevel = std::max(
+        1, std::min(_endLevel, _plugin->startLevel->getValueAtTime(args.time))
     );
     _iterations = _plugin->iterations->getValueAtTime(args.time);
     _acceptableScore = _plugin->acceptableScore->getValueAtTime(args.time);
@@ -332,10 +347,11 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg
                             ,bool haveIdeal, int idealX, int idealY)
 {
     if (!_imgSrc->valid(xSrc, ySrc)) {return;}
-    int components = std::min(_imgSrc->components, _imgTrg->components);
+    auto components = std::min(_imgSrc->components, _imgTrg->components);
+    auto extCompsSrc = _imgSrc->components - components;
+    auto extCompsTrg = _imgTrg->components - components;
     float total = 0;
     int count = 0;
-    auto pOff = (_patchSize-1) >> 1;
 
     double impairment = 0;
     auto bestTotal = best[2];
@@ -383,20 +399,11 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg
         std::cout << std::endl;
     }
 
-    for (int yOff=-pOff; yOff <= pOff; yOff++) {
-        for (int xOff=-pOff; xOff <= pOff; xOff++) {
-            auto xxTrg = xTrg + xOff;
-            auto yyTrg = yTrg + yOff;
-            auto xxSrc = xSrc + xOff;
-            auto yySrc = ySrc + yOff;
-            if (
-                !_imgSrc->valid(xxSrc, yySrc)
-                || !_imgTrg->valid(xxTrg, yyTrg)
-            ) {continue;}
-            auto pixSrc = _imgSrc->pix(xxSrc, yySrc);
-            auto pixTrg = _imgTrg->pix(xxTrg, yyTrg);
-            for (int c=0; c < components; c++, pixSrc++, pixTrg++) {
-                auto diff = *pixTrg - *pixSrc;
+    initScan(xSrc, ySrc, xTrg, yTrg);
+    for (int y=0; y < _scan.numRows; y++) {
+        for (int x=0; x < _scan.numCols; x++) {
+            for (int c=0; c < components; c++, _scan.pixSrc++, _scan.pixTrg++) {
+                auto diff = *(_scan.pixTrg) - *(_scan.pixSrc);
                 if (diff < 0) {total -= diff;}
                 else {total += diff;}
                 if (total >= bestTotal) {
@@ -404,12 +411,14 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg
                     return;
                 }
             }
+            _scan.pixSrc += extCompsSrc;
+            _scan.pixTrg += extCompsTrg;
             count++;
         }
+        nextScanRow();
     }
-    auto maxCount = _patchSize * _patchSize;
-    if (count < maxCount) {
-        total *= maxCount / double(count);
+    if (count < _patch.count) {
+        total *= _patch.count / double(count);
     }
     if (total >= bestTotal) {
         if (logIt) {std::cout << "lose " << total << std::endl;}
@@ -423,4 +432,33 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg
             << " " << best[0] << "," << best[1]
             << std::endl;
     }
+}
+
+void PatchMatcher::initScan(int xSrc, int ySrc, int xTrg, int yTrg) {
+    _scan._offXMax = -std::min(_patch.offY, std::min(xSrc, xTrg));
+    _scan._offXMin = std::min(
+        _patch.offY + 1
+        ,std::min(_imgSrc->width - xSrc, _imgTrg->width - xTrg)
+    );
+    auto startOffY = -std::min(_patch.offY, std::min(ySrc, yTrg));
+    _scan.numRows = std::min(
+        _patch.offY + 1
+        ,std::min(_imgSrc->height - ySrc, _imgTrg->height - yTrg)
+    ) - startOffY;
+    _scan._offX = _patch.offXs + (startOffY + _patch.offY);
+    _scan._curOffX = std::max(-*(_scan._offX), _scan._offXMax);
+    _scan.numCols = std::min(*(_scan._offX) + 1, _scan._offXMin) - _scan._curOffX;
+    _scan.pixSrc = _imgSrc->pix(xSrc + _scan._curOffX, ySrc + startOffY);
+    _scan.pixTrg = _imgTrg->pix(xTrg + _scan._curOffX, yTrg + startOffY);
+}
+
+void PatchMatcher::nextScanRow() {
+    _scan._offX++;
+    if (_scan._offX >= _patch.endOffXs) {return;}
+    _scan._curOffX += _scan.numCols;
+    auto diffX = _scan._curOffX - std::max(-*(_scan._offX), _scan._offXMax);
+    _scan.pixSrc += (_imgSrc->width - diffX) * _imgSrc->components;
+    _scan.pixTrg += (_imgTrg->width - diffX) * _imgTrg->components;
+    _scan._curOffX -= diffX;
+    _scan.numCols = std::min(*(_scan._offX) + 1, _scan._offXMin) - _scan._curOffX;
 }

@@ -53,6 +53,7 @@ public:
 class PatchMatcher {
 public:
     PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args);
+    ~PatchMatcher() {delete[] _patch.offXs;}
     void render();
 
 private:
@@ -61,6 +62,8 @@ private:
     bool propagateAndSearch(int iterNum, int iterLen);
     inline void score(int xSrc, int ySrc, int xTrg, int yTrg
                      ,float* best, bool haveIdeal=false, int idealX=0, int idealY=0);
+    inline void initScan(int xSrc, int ySrc, int xTrg, int yTrg);
+    inline void nextScanRow();
 
     PatchMatchPlugin* _plugin;
     RenderArguments _renderArgs;
@@ -71,10 +74,24 @@ private:
     auto_ptr<SimpleImage> _imgSrc;
     auto_ptr<SimpleImage> _imgTrg;
     auto_ptr<SimpleImage> _imgVect;
-    int _patchSize, _numLevels, _startLevel, _endLevel, _level, _iterationNum, _iterationLength, _offX, _offY;
+    int _numLevels, _startLevel, _endLevel, _level, _iterationNum, _iterationLength, _offX, _offY;
     double _iterations, _acceptableScore, _radicalImpairmentWeight, _maxDistSq;
     bool _radicalImpairmentSquared;
     OfxPointI _logCoords;
+
+    struct {
+        int offY;
+        int *offXs;
+        int *endOffXs;
+        int count;
+    } _patch;
+
+    struct {
+        int numRows, numCols;
+        float *pixSrc, *pixTrg;
+        int *_offX;
+        int _curOffX, _offXMax, _offXMin;
+    } _scan;
 };
 
 inline int boundsWidth(const OfxRectI& bounds) {return bounds.x2 - bounds.x1;}
