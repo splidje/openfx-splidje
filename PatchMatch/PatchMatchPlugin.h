@@ -44,11 +44,6 @@ using namespace OFX;
 #define kParamRadicalImpairmentWeightLabel "Radical Impairment Weight"
 #define kParamRadicalImpairmentWeightHint "Radical Impairment Weight"
 
-#define kParamRadicalImpairmentSquared "radicalImpairmentSquared"
-#define kParamRadicalImpairmentSquaredDefault true
-#define kParamRadicalImpairmentSquaredLabel "Radical Impairment Squared"
-#define kParamRadicalImpairmentSquaredHint "Radical Impairment Squared"
-
 #define kParamRandomSeed "seed"
 #define kParamRandomSeedLabel "Random Seed"
 #define kParamRandomSeedHint "Random Seed"
@@ -75,7 +70,6 @@ public:
     DoubleParam* iterations;
     DoubleParam* acceptableScore;
     DoubleParam* radicalImpairmentWeight;
-    BooleanParam* radicalImpairmentSquared;
     IntParam* randomSeed;
     Int2DParam* logCoords;
 
