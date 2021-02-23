@@ -48,7 +48,7 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
 
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
-    dstClip->addSupportedComponent(ePixelComponentRGBA);
+    dstClip->addSupportedComponent(ePixelComponentRGB);
     dstClip->setSupportsTiles(true);
 
     // create the optional initial clip
@@ -115,15 +115,6 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         param->setLabel(kParamRadicalImpairmentWeightLabel);
         param->setHint(kParamRadicalImpairmentWeightHint);
         param->setDefault(0);
-        if (page) {
-            page->addChild(*param);
-        }
-    }
-    {
-        auto param = desc.defineBooleanParam(kParamRadicalImpairmentSquared);
-        param->setLabel(kParamRadicalImpairmentSquaredLabel);
-        param->setHint(kParamRadicalImpairmentSquaredHint);
-        param->setDefault(kParamRadicalImpairmentSquaredDefault);
         if (page) {
             page->addChild(*param);
         }
