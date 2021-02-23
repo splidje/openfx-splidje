@@ -50,12 +50,11 @@ PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args
     _iterations = _plugin->iterations->getValueAtTime(args.time);
     _acceptableScore = _plugin->acceptableScore->getValueAtTime(args.time);
     _radicalImpairmentWeight = _plugin->radicalImpairmentWeight->getValueAtTime(args.time);
-    _radicalImpairmentSquared = _plugin->radicalImpairmentSquared->getValueAtTime(args.time);
     auto bA = _srcA->getRegionOfDefinition();
     auto bB = _srcB->getRegionOfDefinition();
     auto widthA = boundsWidth(bA);
     auto heightA = boundsHeight(bA);
-    _maxDistSq = widthA * widthA + heightA * heightA;
+    _maxDist = sqrt(widthA * widthA + heightA * heightA);
     _offX = bA.x1 - bB.x1;
     _offY = bA.y1 - bB.y1;
 }
@@ -215,7 +214,7 @@ SimpleImage* PatchMatcher::resample(const Image* image, double scale)
 void PatchMatcher::initialiseLevel()
 {
     auto_ptr<SimpleImage> img(new SimpleImage(
-        _imgTrg->width, _imgTrg->height, 4
+        _imgTrg->width, _imgTrg->height, 3
     ));
     auto dataPix = img->data;
     double prevScaleX, prevScaleY;
@@ -242,7 +241,7 @@ void PatchMatcher::initialiseLevel()
                     x + prevCell[0] * prevScaleX
                     ,y + prevCell[1] * prevScaleY
                     ,x, y
-                    , dataPix
+                    ,dataPix
                 );
                 if (x % prevStepX && pX < _imgVect->width) {
                     pX++;
@@ -260,12 +259,24 @@ void PatchMatcher::initialiseLevel()
     img.release();
 }
 
+void PatchMatcher::averagerAdd(int x, int y) {
+    _averager.xs[_averager.count] = x;
+    _averager.ys[_averager.count] = y;
+    _averager.sumX += x;
+    _averager.sumY += y;
+    _averager.count++;
+}
+
 bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
 {
     int count = 0;
     int dir = iterNum % 2 ? -1 : 1;
     int x, y;
     bool allAcceptable = true;
+    OfxPointI prevXV;
+    OfxPointI prevYV;
+    OfxPointI neighV;
+    int neighX, neighY;
     for (int yi=0; yi < _imgVect->height; yi++) {
         if (_plugin->abort()) {return allAcceptable;}
         for (int xi=0; xi < _imgVect->width; xi++, count++) {
@@ -281,36 +292,98 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
             }
 
             // get neighbours
+            auto xPastStart = x > 0;
+            auto xBeforeEnd = x < _imgVect->width - 1;
+            auto yPastStart = y > 0;
+            auto yBeforeEnd = y < _imgVect->height - 1;
+            auto prevX = x - dir;
+            auto prevY = y - dir;
+            auto nextX = x + dir;
+            auto nextY = y + dir;
+            auto hasPrevX = dir > 0 && xPastStart || dir < 0 && xBeforeEnd;
+            auto hasPrevY = dir > 0 && yPastStart || dir < 0 && yBeforeEnd;
+            if (hasPrevX) {prevXV = _imgVect->vect(prevX, y);}
+            if (hasPrevY) {prevYV = _imgVect->vect(x, prevY);}
+            auto hasNextX = dir > 0 && xBeforeEnd || dir < 0 && xPastStart;
+            auto hasNextY = dir > 0 && yBeforeEnd || dir < 0 && yPastStart;
+            _averager.count = 0;
+            _averager.sumX = 0;
+            _averager.sumY = 0;
+            // prev column
+            if (hasPrevX) {
+                averagerAdd(prevX + prevXV.x, prevY + prevXV.y);
+                if (hasPrevY) {
+                    neighY = prevY;
+                    neighV = _imgVect->vect(prevX, neighY);
+                    averagerAdd(prevX + neighV.x, neighY + neighV.y);
+                }
+                if (hasNextY) {
+                    neighY = nextY;
+                    neighV = _imgVect->vect(prevX, neighY);
+                    averagerAdd(prevX + neighV.x, neighY + neighV.y);
+                }
+            }
+            // prev row
+            if (hasPrevY) {
+                averagerAdd(x + prevYV.x, prevY + prevYV.y);
+            }
+            // next row
+            if (hasNextY) {
+                neighV = _imgVect->vect(x, nextY);
+                averagerAdd(x + neighV.x, nextY + neighV.y);
+            }
+            // next column
+            if (hasNextX) {
+                neighV = _imgVect->vect(nextX, y);
+                averagerAdd(nextX + neighV.x, y + neighV.y);
+                if (hasPrevY) {
+                    neighV = _imgVect->vect(nextX, prevY);
+                    averagerAdd(nextX + neighV.x, prevY + neighV.y);
+                }
+                if (hasNextY) {
+                    neighV = _imgVect->vect(nextX, nextY);
+                    averagerAdd(nextX + neighV.x, nextY + neighV.y);
+                }
+            }
+            // average
+            auto avgX = _averager.sumX / double(_averager.count);
+            auto avgY = _averager.sumY / double(_averager.count);
+            double sumDistSq = 0;
+            for (int i=0; i < _averager.count; i++) {
+                auto dx = _averager.xs[i] - avgX;
+                auto dy = _averager.ys[i] - avgY;
+                sumDistSq += dx*dx + dy*dy;
+            }
+            double sd = sqrt(sumDistSq / _averager.count);
+            if (_level == _endLevel && x == _logCoords.x && y == _logCoords.y) {
+                std::cout << prevXV.x << "," << prevXV.y
+                    << " " << prevYV.x << "," << prevYV.y
+                    << " " << dir
+                    << " " << avgX << "," << avgY
+                    << " (" << sd << ")"
+                    << std::endl;
+            }
 
+            // current value
             auto cur = _imgVect->pix(x, y);
             if (cur[2] >= 0 && cur[2] <= _acceptableScore) {continue;}
             allAcceptable = false;
             auto left = _imgVect->vect(x - dir, y);
             auto down = _imgVect->vect(x, y - dir);
 
-            auto leftRX = left.x - dir;
-            auto downRY = down.y - dir;
-            float hypVX_2 = (down.x - leftRX) / 2;
-            float hypVY_2 = (downRY - left.y) / 2;
-            int idealX = round(leftRX + hypVX_2 - hypVY_2) + x;
-            int idealY = round(left.y + hypVY_2 + hypVX_2) + y;
-            if (_level == _endLevel && x == _logCoords.x && y == _logCoords.y) {
-                std::cout << left.x << "," << left.y
-                    << " " << down.x << "," << down.y
-                    << " " << dir
-                    << " " << idealX << "," << idealY
-                    << std::endl;
-            }
-
             // propagate
-            score(
-                x + left.x, y + left.y, x, y
-                ,cur, true, idealX, idealY
-            );
-            score(
-                x + down.x, y + down.y, x, y
-                ,cur, true, idealX, idealY
-            );
+            if (dir > 0 && x > 0 || dir < 0 && x < _imgVect->width - 1) {
+                score(
+                    x + prevXV.x, y + prevXV.y, x, y
+                    ,cur, true, avgX, avgY, sd
+                );
+            }
+            if (dir > 0 && y > 0 || dir < 0 && y < _imgVect->height - 1) {
+                score(
+                    x + prevYV.x, y + prevYV.y, x, y
+                    ,cur, true, avgX, avgY, sd
+                );
+            }
 
             // search
             double radW = _imgSrc->width / 2.0;
@@ -328,7 +401,7 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
                 auto sY = rand() % h + b;
                 score(
                     sX, sY, x, y
-                    ,cur, true, idealX, idealY
+                    ,cur, true, avgX, avgY, sd
                 );
             }
         }
@@ -344,7 +417,7 @@ inline void distSq(int dX, int dY, int &dSq)
 
 void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg
                             ,float* best
-                            ,bool haveIdeal, int idealX, int idealY)
+                            ,bool haveIdeal, double idealX, double idealY, double idealRad)
 {
     if (!_imgSrc->valid(xSrc, ySrc)) {return;}
     auto components = std::min(_imgSrc->components, _imgTrg->components);
@@ -360,23 +433,20 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg
     if (!haveBest) {
         bestTotal = MAXFLOAT;
     } else if (haveIdeal) {
-        auto bestRadX = xTrg + best[0] - idealX;
-        auto bestRadY = yTrg + best[1] - idealY;
-        auto bestImpUnweigh = (bestRadX*bestRadX + bestRadY*bestRadY) / _maxDistSq;
-        if (!_radicalImpairmentSquared) {
-            bestImpUnweigh = sqrt(bestImpUnweigh);
+        auto bestDX = xTrg + best[0] - idealX;
+        auto bestDY = yTrg + best[1] - idealY;
+        auto bestD = sqrt(bestDX*bestDX + bestDY*bestDY);
+        if (bestD > idealRad) {
+            bestImpairment = _radicalImpairmentWeight * (bestD - idealRad) / _maxDist;
+            bestTotal += bestImpairment;
         }
-        bestImpairment = _radicalImpairmentWeight * bestImpUnweigh;
-        bestTotal += bestImpairment;
-        auto radX = xSrc - idealX;
-        auto radY = ySrc - idealY;
-        auto impUnweigh = (radX*radX + radY*radY) / _maxDistSq;
-        if (!_radicalImpairmentSquared) {
-            impUnweigh = sqrt(impUnweigh);
+        auto dX = xSrc - idealX;
+        auto dY = ySrc - idealY;
+        auto d = sqrt(dX*dX + dY*dY);
+        if (d > idealRad) {
+            impairment = _radicalImpairmentWeight * (d - idealRad) / _maxDist;
+            total = impairment;
         }
-        impairment = _radicalImpairmentWeight * impUnweigh;
-        total = impairment;
-        best[3] = impairment;
     }
 
     auto logIt = _level == _endLevel && _logCoords.x == xTrg && _logCoords.y == yTrg;
