@@ -37,7 +37,6 @@ PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args
         } else {
             *p = *(p + (y<<1));
         }
-        std::cout << *p << std::endl;
     }
 
     _numLevels = _plugin->calculateNumLevelsAtTime(args.time);
@@ -234,7 +233,6 @@ void PatchMatcher::initialiseLevel()
             dataPix[0] = rand() % _imgSrc->width - x;
             dataPix[1] = rand() % _imgSrc->height - y;
             dataPix[2] = -1;
-            dataPix[3] = -1;
             score(x + dataPix[0], y + dataPix[1], x, y, dataPix);
             if (prevRow) {
                 score(
