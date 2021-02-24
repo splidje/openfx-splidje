@@ -39,6 +39,7 @@ using namespace OFX;
 #define kParamAcceptableScore "acceptableScore"
 #define kParamAcceptableScoreLabel "Acceptable Score"
 #define kParamAcceptableScoreHint "Acceptable Score"
+#define kParamAcceptableScoreDefault -1
 
 #define kParamRadicalImpairmentWeight "radicalImpairmentWeight"
 #define kParamRadicalImpairmentWeightLabel "Radical Impairment Weight"
