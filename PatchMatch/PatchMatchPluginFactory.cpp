@@ -105,7 +105,7 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         auto param = desc.defineDoubleParam(kParamAcceptableScore);
         param->setLabel(kParamAcceptableScoreLabel);
         param->setHint(kParamAcceptableScoreHint);
-        param->setDefault(0);
+        param->setDefault(kParamAcceptableScoreDefault);
         if (page) {
             page->addChild(*param);
         }
