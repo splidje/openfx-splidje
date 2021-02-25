@@ -41,9 +41,7 @@ using namespace OFX;
 #define kParamAcceptableScoreHint "Acceptable Score"
 #define kParamAcceptableScoreDefault -1
 
-#define kParamRadicalImpairmentWeight "radicalImpairmentWeight"
-#define kParamRadicalImpairmentWeightLabel "Radical Impairment Weight"
-#define kParamRadicalImpairmentWeightHint "Radical Impairment Weight"
+// #define kParam
 
 #define kParamRandomSeed "seed"
 #define kParamRandomSeedLabel "Random Seed"
@@ -70,7 +68,6 @@ public:
     IntParam* startLevel;
     DoubleParam* iterations;
     DoubleParam* acceptableScore;
-    DoubleParam* radicalImpairmentWeight;
     IntParam* randomSeed;
     Int2DParam* logCoords;
 
