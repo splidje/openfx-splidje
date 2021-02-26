@@ -24,6 +24,7 @@ void OffsetMapPluginFactory::describe(ImageEffectDescriptor &desc)
     desc.setSupportsMultipleClipPARs(true);
     desc.setSupportsMultipleClipDepths(false);
     desc.setRenderThreadSafety(eRenderInstanceSafe);
+    desc.setSequentialRender(true);
 }
 
 void OffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, ContextEnum context)

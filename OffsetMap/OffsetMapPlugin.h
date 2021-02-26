@@ -24,25 +24,25 @@ using namespace OFX;
 #define kParamReferenceFrameLabel "Reference Frame"
 #define kParamReferenceFrameHint "Reference Frame"
 
-#define MAX_CACHE_OUTPUTS 2
+#define MAX_CACHE_OUTPUTS 10
 
 
-class OffsetMapImage {
+class CachedOutput {
 public:
+    bool inCache = false;
+    double time;
     OfxRectI rod;
     int components;
-    float* imgData;
-    OffsetMapImage(OfxRectI newROD, int comps) {
+    auto_ptr<ImageMemory> imgMem;
+    void refresh(double t, OfxRectI newROD, int comps) {
+        time = t;
         components = comps;
         rod = newROD;
         auto width = newROD.x2 - newROD.x1;
         auto height = newROD.y2 - newROD.y1;
-        imgData = new float[width * height * comps];
-    }
-    ~OffsetMapImage() {
-        if (imgData) {
-            delete[] imgData;
-        }
+        imgMem.reset(
+            new ImageMemory(width * height * comps * sizeof(float))
+        );
     }
 };
 
@@ -67,7 +67,7 @@ private:
 
     virtual void getFramesNeeded(const FramesNeededArguments &args, FramesNeededSetter &frames) OVERRIDE FINAL;
 
-    OffsetMapImage* getOutput(double t, OfxPointD renderScale);
+    CachedOutput* getOutput(double t, OfxPointD renderScale);
 
 private:
     Clip* _srcClip;
@@ -75,4 +75,10 @@ private:
     Clip* _dstClip;
     BooleanParam* _iterateTemporally;
     IntParam* _referenceFrame;
+
+    bool _haveLastRenderArgs = false;
+    RenderArguments _lastRenderArgs;
+    int _nextCacheIndex = 0;
+    CachedOutput _cachedOutputs[MAX_CACHE_OUTPUTS];
+    std::map<double, CachedOutput*> _cachedOutputByTime;
 };
