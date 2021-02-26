@@ -46,7 +46,9 @@ void OffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, Cont
 
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
-    dstClip->addSupportedComponent(ePixelComponentRGB);
+    srcClip->addSupportedComponent(ePixelComponentRGB);
+    dstClip->addSupportedComponent(ePixelComponentRGBA);
+    srcClip->addSupportedComponent(ePixelComponentAlpha);
     dstClip->setTemporalClipAccess(true);
     dstClip->setSupportsTiles(true);
 

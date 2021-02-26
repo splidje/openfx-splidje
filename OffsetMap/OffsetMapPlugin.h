@@ -27,26 +27,30 @@ using namespace OFX;
 #define MAX_CACHE_OUTPUTS 2
 
 
-typedef struct {
-    double time;
-    OfxPointD renderScale;
-    int components;
+class OffsetMapImage {
+public:
     OfxRectI rod;
+    int components;
     float* imgData;
-} _cached_output_t;
+    OffsetMapImage(OfxRectI newROD, int comps) {
+        components = comps;
+        rod = newROD;
+        auto width = newROD.x2 - newROD.x1;
+        auto height = newROD.y2 - newROD.y1;
+        imgData = new float[width * height * comps];
+    }
+    ~OffsetMapImage() {
+        if (imgData) {
+            delete[] imgData;
+        }
+    }
+};
 
 
 class OffsetMapPlugin : public ImageEffect
 {
 public:
     OffsetMapPlugin(OfxImageEffectHandle handle);
-    ~OffsetMapPlugin() {
-        for (int i=0; i < MAX_CACHE_OUTPUTS; i++) {
-            if (_cached_outputs[i].imgData) {
-                delete[] _cached_outputs[i].imgData;
-            }
-        }
-    }
 
 private:
     /* Override the render */
@@ -61,11 +65,9 @@ private:
 
     virtual void getClipPreferences(ClipPreferencesSetter &clipPreferences) OVERRIDE FINAL;
 
-    virtual void changedClip(const InstanceChangedArgs &args, const std::string &clipName) OVERRIDE FINAL;
+    virtual void getFramesNeeded(const FramesNeededArguments &args, FramesNeededSetter &frames) OVERRIDE FINAL;
 
-    virtual void endChanged(InstanceChangeReason reason) OVERRIDE FINAL;
-
-    _cached_output_t* getCachedOutput(double t, OfxPointD renderScale);
+    OffsetMapImage* getOutput(double t, OfxPointD renderScale);
 
 private:
     Clip* _srcClip;
@@ -73,8 +75,4 @@ private:
     Clip* _dstClip;
     BooleanParam* _iterateTemporally;
     IntParam* _referenceFrame;
-
-    _cached_output_t _cached_outputs[MAX_CACHE_OUTPUTS];
-    int _next_cached_output_index;
-    std::map<double, _cached_output_t*> _cached_output_by_time;
 };

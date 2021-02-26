@@ -4,7 +4,6 @@
 
 OffsetMapPlugin::OffsetMapPlugin(OfxImageEffectHandle handle)
     : ImageEffect(handle)
-    , _next_cached_output_index(0)
 {
     _offClip = fetchClip(kOffsetsClip);
     assert(_offClip && (_offClip->getPixelComponents() == ePixelComponentRGB ||
@@ -23,12 +22,19 @@ void OffsetMapPlugin::getClipPreferences(ClipPreferencesSetter &clipPreferences)
     clipPreferences.setClipComponents(*_dstClip, _srcClip->getPixelComponents());
 }
 
-void OffsetMapPlugin::changedClip(const InstanceChangedArgs &args, const std::string &clipName) {
-    std::cout << "changed clip!" << std::endl;
-}
-
-void OffsetMapPlugin::endChanged(InstanceChangeReason reason) {
-    std::cout << "changed!" << std::endl;
+void OffsetMapPlugin::getFramesNeeded(const FramesNeededArguments &args, FramesNeededSetter &frames) {
+    std::cout << "getFramesNeeded " << args.time << std::endl;
+    auto iterTemp = _iterateTemporally->getValueAtTime(args.time);
+    auto refFrame = _referenceFrame->getValueAtTime(args.time);
+    if (!iterTemp || refFrame == args.time) {
+        ImageEffect::getFramesNeeded(args, frames);
+        return;
+    }
+    OfxRangeD range;
+    range.min = std::min(double(refFrame), args.time);
+    range.max = std::max(double(refFrame), args.time);
+    frames.setFramesNeeded(*_srcClip, range);
+    frames.setFramesNeeded(*_offClip, range);
 }
 
 bool OffsetMapPlugin::isIdentity(const IsIdentityArguments &args, 
@@ -45,19 +51,17 @@ bool OffsetMapPlugin::isIdentity(const IsIdentityArguments &args,
 // the overridden render function
 void OffsetMapPlugin::render(const RenderArguments &args)
 {
-    auto cachedOutput = getCachedOutput(args.time, args.renderScale);
-    if (!cachedOutput) {return;}
-    auto cachedWidth = cachedOutput->rod.x2 - cachedOutput->rod.x1;
+    auto_ptr<OffsetMapImage> output(getOutput(args.time, args.renderScale));
+    if (!output.get()) {return;}
+    auto width = output->rod.x2 - output->rod.x1;
     auto_ptr<Image> dstImg(_dstClip->fetchImage(args.time));
     auto dstComponents = dstImg->getPixelComponentCount();
-    for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
+    for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {        
         auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, y);
         for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
-            int cachedX = round(cachedOutput->renderScale.x * x / args.renderScale.x);
-            int cachedY = round(cachedOutput->renderScale.y * y / args.renderScale.y);
-            auto cachedPix = cachedOutput->imgData + (cachedY * cachedWidth + cachedX) * cachedOutput->components;
+            auto cachedPix = output->imgData + (y * width + x) * output->components;
             for (int c=0; c < dstComponents; c++, dstPix++) {
-                if (c < cachedOutput->components) {
+                if (c < output->components) {
                     *dstPix = cachedPix[c];
                 } else {
                     *dstPix = 0;
@@ -67,82 +71,56 @@ void OffsetMapPlugin::render(const RenderArguments &args)
     }
 }
 
-_cached_output_t* OffsetMapPlugin::getCachedOutput(double t, OfxPointD renderScale) {
-    _cached_output_t* ret;
-    auto iter = _cached_output_by_time.find(t);
-    if (iter != _cached_output_by_time.end()
-        && iter->second->renderScale.x >= renderScale.x
-        && iter->second->renderScale.y >= renderScale.y)
-    {
-        std::cout << t << " " << renderScale.x << "," << renderScale.y << " already cached. returning." << std::endl;
-        ret = iter->second;
+OffsetMapImage* OffsetMapPlugin::getOutput(double t, OfxPointD renderScale) {
+    auto_ptr<Image> offImg(_offClip->fetchImage(t, _offClip->getRegionOfDefinition(t)));
+    if (!offImg.get()) {return NULL;}
+    auto offROD = offImg->getRegionOfDefinition();
+    auto offComponents = offImg->getPixelComponentCount();
+    float* srcImgData;
+    OfxRectI srcROD;
+    int srcComponents;
+    auto_ptr<Image> srcImgCleaner;
+    auto_ptr<OffsetMapImage> outImgCleaner;
+    auto iterTemp = _iterateTemporally->getValueAtTime(t);
+    auto refFrame = _referenceFrame->getValueAtTime(t);        
+    if (iterTemp && refFrame != t) {
+        auto srcFrame = t + (refFrame < t ? -1 : 1);
+        outImgCleaner.reset(getOutput(srcFrame, renderScale));
+        srcComponents = outImgCleaner->components;
+        srcImgData = outImgCleaner->imgData;
+        srcROD = outImgCleaner->rod;
     } else {
-        std::cout << t << " " << renderScale.x << "," << renderScale.y << " not cached. generating and caching." << std::endl;
-        auto blah = _offClip->getRegionOfDefinition(t);
-        auto_ptr<Image> offImg(_offClip->fetchImage(t, _offClip->getRegionOfDefinition(t)));
-        if (!offImg.get()) {return NULL;}
-        auto offROD = offImg->getRegionOfDefinition();
-        auto offWidth = offROD.x2 - offROD.x1;
-        auto offHeight = offROD.y2 - offROD.y1;
-        auto offComponents = offImg->getPixelComponentCount();
-        float* srcImgData;
-        OfxRectI srcROD;
-        int srcComponents;
-        OfxPointD srcRenderScale = renderScale;
-        auto_ptr<Image> srcImgCleaner;
-        auto iterTemp = _iterateTemporally->getValueAtTime(t);
-        auto refFrame = _referenceFrame->getValueAtTime(t);        
-        if (iterTemp && refFrame != t) {
-            auto srcFrame = refFrame - t;
-            auto cached_output = getCachedOutput(srcFrame, renderScale);
-            srcComponents = cached_output->components;
-            srcImgData = cached_output->imgData;
-            srcROD = cached_output->rod;
-            srcRenderScale = cached_output->renderScale;
-        } else {
-            srcImgCleaner.reset(
-                _srcClip->fetchImage(
-                    t, _srcClip->getRegionOfDefinition(t)
-                )
-            );
-            srcComponents = srcImgCleaner->getPixelComponentCount();
-            srcImgData = (float*)srcImgCleaner->getPixelData();
-            srcROD = srcImgCleaner->getRegionOfDefinition();
-        }
-        auto srcWidth = srcROD.x2 - srcROD.x1;
-        ret = _cached_outputs + _next_cached_output_index;
-        ret->time = t;
-        ret->renderScale = renderScale;
-        ret->components = srcComponents;
-        ret->rod = offROD;
-        if (ret->imgData) {delete[] ret->imgData;}
-        ret->imgData = new float[offWidth * offHeight * srcComponents];
-        auto dstPix = ret->imgData;
-        for (int y=offROD.y1; y < offROD.y2; y++) {
-            auto offPix = (float*)offImg->getPixelAddress(offROD.x1, y);
-            for (int x=offROD.x1; x < offROD.x2; x++) {
-                int xSrc = round(((x / renderScale.x) + offPix[0]) * srcRenderScale.x);
-                int ySrc = round(((y / renderScale.y) + offPix[1]) * srcRenderScale.y);
-                float* srcPix = NULL;
-                if (xSrc >= srcROD.x1 && xSrc < srcROD.x2
-                    && ySrc >= srcROD.y1 && ySrc < srcROD.y2)
-                {
-                    srcPix = srcImgData + (ySrc * srcWidth + xSrc) * srcComponents;
-                }
-                for (int c=0; c < srcComponents; c++, dstPix++) {
-                    if (srcPix) {
-                        *dstPix = srcPix[c];
-                    } else {
-                        *dstPix = 0;
-                    }
-                }
-                offPix += offComponents;
+        srcImgCleaner.reset(
+            _srcClip->fetchImage(
+                t, _srcClip->getRegionOfDefinition(t)
+            )
+        );
+        srcComponents = srcImgCleaner->getPixelComponentCount();
+        srcImgData = (float*)srcImgCleaner->getPixelData();
+        srcROD = srcImgCleaner->getRegionOfDefinition();
+    }
+    auto srcWidth = srcROD.x2 - srcROD.x1;
+    auto ret = new OffsetMapImage(offROD, srcComponents);
+    auto dstPix = ret->imgData;
+    for (int y=offROD.y1; y < offROD.y2; y++) {
+        auto offPix = (float*)offImg->getPixelAddress(offROD.x1, y);
+        for (int x=offROD.x1; x < offROD.x2; x++) {
+            int xSrc = round(x + offPix[0] * renderScale.x);
+            int ySrc = round(y + offPix[1] * renderScale.y);
+            float* srcPix = NULL;
+            if (xSrc >= srcROD.x1 && xSrc < srcROD.x2
+                && ySrc >= srcROD.y1 && ySrc < srcROD.y2)
+            {
+                srcPix = srcImgData + (ySrc * srcWidth + xSrc) * srcComponents;
             }
-        }
-        _cached_output_by_time[t] = ret;
-        _next_cached_output_index++;
-        if (_next_cached_output_index == MAX_CACHE_OUTPUTS) {
-            _next_cached_output_index = 0;
+            for (int c=0; c < srcComponents; c++, dstPix++) {
+                if (srcPix) {
+                    *dstPix = srcPix[c];
+                } else {
+                    *dstPix = 0;
+                }
+            }
+            offPix += offComponents;
         }
     }
     return ret;
