@@ -41,7 +41,10 @@ using namespace OFX;
 #define kParamAcceptableScoreHint "Acceptable Score"
 #define kParamAcceptableScoreDefault -1
 
-// #define kParam
+#define kParamSpatialImpairmentFactor "spatialImpairmentFactor"
+#define kParamSpatialImpairmentFactorLabel "Spatial Impairment Factor"
+#define kParamSpatialImpairmentFactorHint "Spatial Impairment Factor"
+#define kParamSpatialImpairmentFactorDefault 0
 
 #define kParamRandomSeed "seed"
 #define kParamRandomSeedLabel "Random Seed"
@@ -68,6 +71,7 @@ public:
     IntParam* startLevel;
     DoubleParam* iterations;
     DoubleParam* acceptableScore;
+    DoubleParam* spatialImpairmentFactor;
     IntParam* randomSeed;
     Int2DParam* logCoords;
 

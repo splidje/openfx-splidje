@@ -5,6 +5,11 @@ time_t st_score;
 double t_score = 0;
 
 
+inline float sq(float x) {
+    return x*x;
+}
+
+
 PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args)
     : _plugin(plugin)
     , _renderArgs(args) {
@@ -52,11 +57,10 @@ PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args
     );
     _iterations = _plugin->iterations->getValueAtTime(args.time);
     _acceptableScore = _plugin->acceptableScore->getValueAtTime(args.time);
+    _spatialImpairmentFactor = _plugin->spatialImpairmentFactor->getValueAtTime(args.time);
     auto bA = _srcA->getRegionOfDefinition();
     auto bB = _srcB->getRegionOfDefinition();
-    auto widthA = boundsWidth(bA);
-    auto heightA = boundsHeight(bA);
-    _maxDist = sqrt(widthA * widthA + heightA * heightA);
+    _maxDist = sqrt(sq(boundsWidth(bA)) + sq(boundsHeight(bB)));
     _offX = bA.x1 - bB.x1;
     _offY = bA.y1 - bB.y1;
 }
@@ -268,10 +272,6 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
     int dir = iterNum % 2 ? -1 : 1;
     int x, y;
     bool allAcceptable = true;
-    OfxPointI prevXV;
-    OfxPointI prevYV;
-    OfxPointI neighV;
-    int neighX, neighY;
     for (int yi=0; yi < _imgVect->height; yi++) {
         if (_plugin->abort()) {return allAcceptable;}
         for (int xi=0; xi < _imgVect->width; xi++, count++) {
@@ -291,18 +291,39 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
             if (cur[2] >= 0 && cur[2] <= _acceptableScore) {continue;}
             allAcceptable = false;
 
-            // propagate
-            if (dir > 0 && x > 0 || dir < 0 && x < _imgVect->width - 1) {
-                auto prevXV = _imgVect->vect(x - dir, y);
-                score(
-                    x + prevXV.x, y + prevXV.y, x, y, cur
-                );
+            // ideal circle
+            float idealRadSq = -1, idealRad, idealX, idealY;
+            auto havePrevX = dir > 0 && x > 0 || dir < 0 && x < _imgVect->width - 1;
+            auto havePrevY = dir > 0 && y > 0 || dir < 0 && y < _imgVect->height - 1;
+            float prevXX, prevXY, prevYX, prevYY;
+            OfxPointI prevV;
+            if (havePrevX) {
+                prevV = _imgVect->vect(x - dir, y);
+                prevXX = x + prevV.x;
+                prevXY = y + prevV.y;
             }
-            if (dir > 0 && y > 0 || dir < 0 && y < _imgVect->height - 1) {
-                prevYV = _imgVect->vect(x, y - dir);
-                score(
-                    x + prevYV.x, y + prevYV.y, x, y, cur
-                );
+            if (havePrevY) {
+                prevV = _imgVect->vect(x, y - dir);
+                prevYX = x + prevV.x;
+                prevYY = y + prevV.y;
+            }
+            if (havePrevX && havePrevY) {
+                auto radVX = (prevXX - prevYX) / 2;
+                auto radVY = (prevXY - prevYY) / 2;
+                idealRadSq = sq(radVX) + sq(radVY);
+                idealRad = sqrt(idealRadSq);
+                idealX = prevYX + radVX;
+                idealY = prevYY + radVY;
+            }
+
+            // propagate
+            if (havePrevX) {
+                score(prevXX, prevXY, x, y, cur
+                     ,idealRadSq, idealRad, idealX, idealY);
+            }
+            if (havePrevY) {
+                score(prevYX, prevYY, x, y, cur
+                     ,idealRadSq, idealRad, idealX, idealY);
             }
 
             // search
@@ -328,13 +349,8 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
     return allAcceptable;
 }
 
-inline void distSq(int dX, int dY, int &dSq)
-{
-    if (dSq >= 0) {return;}
-    dSq = dX*dX + dY*dY;
-}
-
-void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best)
+void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
+                        ,float idealRadSq, float idealRad, float idealX, float idealY)
 {
     time(&st_score);
     if (!_imgSrc->valid(xSrc, ySrc)) {
@@ -350,6 +366,15 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best)
     auto haveBest = bestTotal >= 0;
     if (!haveBest) {
         bestTotal = MAXFLOAT;
+    } else if (idealRadSq >= 0 && _spatialImpairmentFactor) {
+        auto distSq = sq(xSrc - idealX) + sq(ySrc - idealY);
+        if (distSq > idealRadSq) {
+            total = _spatialImpairmentFactor * (sqrt(distSq) - idealRad) / _maxDist;
+        }
+        auto bestDistSq = sq(xTrg + best[0] - idealX) + sq(yTrg + best[1] - idealY);
+        if (bestDistSq > idealRadSq) {
+            bestTotal += _spatialImpairmentFactor * (sqrt(bestDistSq) - idealRad) / _maxDist;
+        }
     }
     auto logIt = _level == _endLevel && _logCoords.x == xTrg && _logCoords.y == yTrg;
     if (logIt) {
