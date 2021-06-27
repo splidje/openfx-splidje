@@ -3,7 +3,8 @@ PLUGINNAME = AJPTechnical
 PLUGINOBJECTS = \
 MeshWarp.o\
 PatchMatchPluginFactory.o PatchMatchPlugin.o PatchMatcher.o\
-OffsetMapPluginFactory.o OffsetMapPlugin.o
+OffsetMapPluginFactory.o OffsetMapPlugin.o\
+TranslateMapPluginFactory.o TranslateMapPlugin.o
 
 SRCDIR = ..
 
@@ -15,4 +16,5 @@ include $(SRCDIR)/Makefile.master
 VPATH += \
 $(SRCDIR)/MeshWarp\
 $(SRCDIR)/PatchMatch\
-$(SRCDIR)/OffsetMap
+$(SRCDIR)/OffsetMap\
+$(SRCDIR)/TranslateMap

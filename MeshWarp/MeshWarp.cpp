@@ -160,26 +160,23 @@ private:
         const OfxRectI boundsI = _srcImg->getBounds();
         const OfxRectD boundsD = {(double)boundsI.x1, (double)boundsI.y1, (double)boundsI.x2, (double)boundsI.y2};
 
-        std::vector<std::pair<OfxPointD, OfxPointD>> pins = {
-            {{boundsD.x1, boundsD.y1}, {boundsD.x1, boundsD.y1}}
-            ,{{boundsD.x2, boundsD.y1}, {boundsD.x2, boundsD.y1}}
-            ,{{boundsD.x2, boundsD.y2}, {boundsD.x2, boundsD.y2}}
-            ,{{boundsD.x1, boundsD.y2}, {boundsD.x1, boundsD.y2}}
-            ,{  {_fromTos[0].first.x * rs.x, _fromTos[0].first.y * rs.y}
-                ,{_fromTos[0].second.x * rs.x, _fromTos[0].second.y * rs.y}
-            }
+        std::vector<OfxPointD> pinsFrom = {
+            {boundsD.x1, boundsD.y1}
+            ,{boundsD.x2, boundsD.y1}
+            ,{boundsD.x2, boundsD.y2}
+            ,{boundsD.x1, boundsD.y2}
+            ,{_fromTos[0].first.x * rs.x, _fromTos[0].first.y * rs.y}
         };
 
-        typedef struct TriIndexer {
-            unsigned int i1, i2, i3;
-        } TriIndexer;
-
-        std::vector<TriIndexer> triangles = {
-            {0, 1, 4}
-            ,{1, 2, 4}
-            ,{2, 3, 4}
-            ,{3, 4, 0}
+        std::vector<OfxPointD> pinsTo = {
+            {boundsD.x1, boundsD.y1}
+            ,{boundsD.x2, boundsD.y1}
+            ,{boundsD.x2, boundsD.y2}
+            ,{boundsD.x1, boundsD.y2}
+            ,{_fromTos[0].second.x * rs.x, _fromTos[0].second.y * rs.y}
         };
+
+        std::vector<TriangleMaths::TriIndexer> triangles = TriangleMaths::delaunay(pinsFrom);
 
         // go through every destination coord
         for (int y = procWindow.y1; y < procWindow.y2; y++) {
@@ -196,27 +193,20 @@ private:
                 }
 
                 // go through each tri
-                for (int ti = 0; ti < triangles.size(); ++ti)
+                for (auto triI : triangles)
                 {
-                    // establish the points of this tri
-                    TriIndexer triI = triangles[ti];
-                    TriangleMaths::Triangle toTri = {
-                        pins[triI.i1].second
-                        ,pins[triI.i2].second
-                        ,pins[triI.i3].second
-                    };
                     // get barycentric coords in to tri
-                    TriangleMaths::BarycentricWeights bw = TriangleMaths::toBarycentric(p, toTri);
+                    TriangleMaths::BarycentricWeights bw = TriangleMaths::toBarycentric(
+                        p
+                        ,TriangleMaths::indexerToTri(triI, pinsTo)
+                    );
                     // is it in this tri?
                     if (!(bw.w1 < 0 || bw.w2 < 0 || bw.w3 < 0)) {
-                        TriangleMaths::Triangle fromTri = {
-                            pins[triI.i1].first
-                            ,pins[triI.i2].first
-                            ,pins[triI.i3].first
-                        };
-
                         // convert to image coords in from tri
-                        OfxPointD pFromD = TriangleMaths::fromBarycentric(bw, fromTri);
+                        OfxPointD pFromD = TriangleMaths::fromBarycentric(
+                            bw
+                            ,TriangleMaths::indexerToTri(triI, pinsFrom)
+                        );
 
                         // inside bounds of src?
                         if (pFromD.y >= boundsI.y1
