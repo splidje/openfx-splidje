@@ -35,3 +35,7 @@ The idea is to be able to add/remove points dynamically.
 Use Delaunay Triangulation to automatically generate the triangles for the mesh made by the from points.
 
 I'm getting a creeping feeling this isn't quite what I personally want, and maybe I should instead attempt a spline warp effect.
+
+## FaceTrack
+
+You need to download https://github.com/italojs/facial-landmarks-recognition/raw/master/shape_predictor_68_face_landmarks.dat to the FaceTrack folder to build (it's ~100MB and it's binary data, so I've decided not to add it to the repo).
