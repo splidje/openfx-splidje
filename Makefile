@@ -1,5 +1,5 @@
 SUBDIRS = Bundle
-SUBDIRS_NOMULTI = MeshWarp PatchMatch OffsetMap TranslateMap
+SUBDIRS_NOMULTI = MeshWarp PatchMatch OffsetMap TranslateMap FaceTrack
 
 all: subdirs
 
