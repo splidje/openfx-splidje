@@ -5,7 +5,8 @@ MeshWarp.o\
 PatchMatchPluginFactory.o PatchMatchPlugin.o PatchMatcher.o\
 OffsetMapPluginFactory.o OffsetMapPlugin.o\
 TranslateMapPluginFactory.o TranslateMapPlugin.o\
-FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackInteract.o
+FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackInteract.o\
+BoneWarpPluginFactory.o BoneWarpPlugin.o BoneWarpInteract.o
 
 SRCDIR = ..
 
@@ -20,7 +21,8 @@ $(SRCDIR)/MeshWarp\
 $(SRCDIR)/PatchMatch\
 $(SRCDIR)/OffsetMap\
 $(SRCDIR)/TranslateMap\
-$(SRCDIR)/FaceTrack
+$(SRCDIR)/FaceTrack\
+$(SRCDIR)/BoneWarp
 
 CXXFLAGS += `pkg-config --cflags dlib-1`
 LINKFLAGS += `pkg-config --libs dlib-1`
