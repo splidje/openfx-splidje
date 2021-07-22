@@ -74,7 +74,7 @@ void TranslateMapPlugin::render(const RenderArguments &args)
                 && new_y >= args.renderWindow.y1 && new_y < args.renderWindow.y2
             ) {
                 // std::cout << new_x << ", " << new_y << std::endl;
-                auto outPix = (float*)dstImg->getPixelAddress(new_x, new_y);
+                auto outPix = (float*)dstImg->getPixelAddressNearest(round(new_x), round(new_y));
                 for (int c=0; c < component_count; c++, outPix++) {
                     // std::cout << c << " ";
                     *outPix = srcPix[c];
