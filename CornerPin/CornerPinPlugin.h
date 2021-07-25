@@ -24,6 +24,8 @@ private:
 #endif
     ) OVERRIDE FINAL;
 
+    virtual void getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois);
+
     void setIntersections(std::vector<std::vector<OfxPointD>> intersections);
 
 private:

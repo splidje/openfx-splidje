@@ -18,7 +18,7 @@ void TranslateMapPluginFactory::describe(ImageEffectDescriptor &desc)
     desc.setSingleInstance(false);
     desc.setHostFrameThreading(false);
     desc.setSupportsMultiResolution(true);
-    desc.setSupportsTiles(true);
+    desc.setSupportsTiles(false);
     desc.setTemporalClipAccess(false);
     desc.setRenderTwiceAlways(false);
     desc.setSupportsMultipleClipPARs(true);
@@ -42,7 +42,7 @@ void TranslateMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, C
     srcClip->addSupportedComponent(ePixelComponentRGB);
     srcClip->addSupportedComponent(ePixelComponentAlpha);
     srcClip->setTemporalClipAccess(false);
-    srcClip->setSupportsTiles(true);
+    srcClip->setSupportsTiles(false);
     srcClip->setIsMask(false);
 
     // create the mandated output clip
@@ -51,7 +51,7 @@ void TranslateMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, C
     dstClip->addSupportedComponent(ePixelComponentRGBA);
     srcClip->addSupportedComponent(ePixelComponentAlpha);
     dstClip->setTemporalClipAccess(false);
-    dstClip->setSupportsTiles(true);
+    dstClip->setSupportsTiles(false);
 }
 
 ImageEffect* TranslateMapPluginFactory::createInstance(OfxImageEffectHandle handle, ContextEnum /*context*/)

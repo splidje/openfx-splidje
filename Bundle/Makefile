@@ -5,6 +5,7 @@ MeshWarp.o\
 PatchMatchPluginFactory.o PatchMatchPlugin.o PatchMatcher.o\
 OffsetMapPluginFactory.o OffsetMapPlugin.o\
 FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackInteract.o\
+QuadrangleDistort.o\
 TranslateMapPluginFactory.o TranslateMapPlugin.o\
 CornerPinPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o
 
@@ -21,6 +22,7 @@ $(SRCDIR)/MeshWarp\
 $(SRCDIR)/PatchMatch\
 $(SRCDIR)/OffsetMap\
 $(SRCDIR)/FaceTrack\
+$(SRCDIR)/QuadrangleDistort\
 $(SRCDIR)/TranslateMap\
 $(SRCDIR)/CornerPin
 

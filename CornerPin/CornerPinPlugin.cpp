@@ -32,6 +32,10 @@ bool CornerPinPlugin::isIdentity(const IsIdentityArguments &args,
     return false;
 }
 
+void CornerPinPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois) {
+    rois.setRegionOfInterest(*_srcClip, _srcClip->getRegionOfDefinition(args.time));
+}
+
 void fromCanonical(OfxPointD p, OfxPointD renderScale, double par, OfxPointD* result) {
     result->x = p.x * renderScale.x / par;
     result->y = p.y * renderScale.y;
