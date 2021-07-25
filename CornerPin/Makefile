@@ -1,4 +1,4 @@
-PLUGINOBJECTS = CornerPingPluginFactory.o CornerPinPlugin.o
+PLUGINOBJECTS = CornerPingPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o
 PLUGINNAME = AJPTCornerPin
 RESOURCES =
 

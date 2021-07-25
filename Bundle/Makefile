@@ -4,8 +4,8 @@ PLUGINOBJECTS = \
 MeshWarp.o\
 PatchMatchPluginFactory.o PatchMatchPlugin.o PatchMatcher.o\
 OffsetMapPluginFactory.o OffsetMapPlugin.o\
-TranslateMapPluginFactory.o TranslateMapPlugin.o\
 FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackInteract.o\
+TranslateMapPluginFactory.o TranslateMapPlugin.o\
 CornerPinPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o
 
 SRCDIR = ..
@@ -20,8 +20,8 @@ VPATH += \
 $(SRCDIR)/MeshWarp\
 $(SRCDIR)/PatchMatch\
 $(SRCDIR)/OffsetMap\
-$(SRCDIR)/TranslateMap\
 $(SRCDIR)/FaceTrack\
+$(SRCDIR)/TranslateMap\
 $(SRCDIR)/CornerPin
 
 CXXFLAGS += `pkg-config --cflags dlib-1`
