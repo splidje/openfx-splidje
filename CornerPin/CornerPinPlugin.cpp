@@ -96,8 +96,6 @@ class Edge {
     }
 
     inline double crosses(Edge* edge) {
-        assert(isInitialised);
-        assert(edge->isInitialised);
         auto denom = vect.y * edge->vect.x - vect.x * edge->vect.y;
         if (denom == 0) {
             return INFINITY;
@@ -304,42 +302,105 @@ class QuadranglePixel {
         auto q = _fromP[0].x;
         auto Q = _fromP[0].y;
 
-        auto denomX = 2 * (D * g - d * G);
-        auto denomY = 2 * (F * h - f * H);
+        double denom;
 
-        if (denomX == 0 || denomY == 0) {
-            idP->x = -1;
-            idP->y = -1;
-            return;
+        // https://www.wolframalpha.com/input/?i=solve+u*d+%2B+a*%28%28-h+%2B+u*-g%29+-+u*d%29+%3D+q%2C+u*D+%2B+a*%28%28-H+%2B+u*-G%29+-+u*D%29+%3D+Q%2C+for+u%2C+a
+        denom = 2 * (D * g - d * G);
+        if (denom != 0) {
+            // == X ==
+            idP->x = (
+                (
+                    sqrt(
+                        pow(
+                            -d * H - d * Q + D * h + D * q - g * Q + G * q,
+                            2
+                        )
+                        - 4 * (D * g - d * G) * (H * q - h * Q)
+                    )
+                    + d * H + d * Q - D * h - D * q + g * Q - G * q
+                )
+                / denom
+            );
+
+            // == Y ==
+            // https://www.wolframalpha.com/input/?i=solve+v*-h+%2B+b*%28%28d+%2B+v*f%29+-+v*-h%29+%3D+q%2C+v*-H+%2B+b*%28%28D+%2B+v*F%29+-+v*-H%29+%3D+Q%2C+for+v%2C+b
+            denom = 2 * (F * h - f * H);
+            if (denom != 0) {
+                idP->y = (
+                    (
+                        sqrt(
+                            pow(
+                                - d * H + D * h - f * Q + F * q - h * Q + H * q,
+                                2
+                            )
+                            - 4 * (D * q - d * Q) * (F * h - f * H)
+                        )
+                        + d * H - D * h + f * Q - F * q + h * Q - H * q
+                    )
+                    / denom
+                );
+            }
+            // f,F and h,H are parallel
+            else {
+                // (u[d,D] -> q,Q)'s component length in -h,-H's direction
+                // over the length of the line made by u([d,D]) -> [-h,-H] + u([-g,-G])
+                // that line:
+                // (-h + u*-g) - ud
+                // -h - ug - ud
+                // -h - u(g + d)
+                // result:
+                // ((q - ud)*-h + (Q - uD)*-H) / (<-h,-H length> * sqrt((-h - u(g + d))^2 + (-H - u(G + D))^2))
+                // (h(ud - q) + H(uD - Q)) / (<-h,-H length> * sqrt((-h - u(g + d))^2 + (-H - u(G + D))^2))
+                denom = (
+                    quadrangle->edges[3].length
+                    * sqrt(
+                        pow(-h - idP->x * (g + d), 2)
+                        + pow(-H - idP->x * (G + D), 2)
+                    )
+                );
+                assert(denom != 0);
+                idP->y = (h * (idP->x * d - q) + H * (idP->x * D - Q)) / denom;
+            }
         }
+        // d,D and g,G are parallel
+        else {
+            // == Y ==
+            // length of q,Q's component in d,D's normal's direction:
+            // (-Dq + dQ) / sqrt(d^2 + D^2)
+            // over length of f,F's component in d,D's normal's direction:
+            // (-D*f + d*F) / sqrt(d^2 + D^2)
+            // denoms cancel out:
+            // (-Dq + dQ) / (-Df + dF)
+            // (dQ - Dq) / (dF - Df)
+            denom = d * F - D * f;
+            // d,D not parallel with f,F
+            if (denom != 0) {
+                idP->y = (d * Q - D * q) / denom;
+            }
+            // if parallel, it's crushed
+            else {
+                idP->y = 0.5;
+            }
 
-        idP->x = (
-            (
-                sqrt(
-                    pow(
-                        -d * H - d * Q + D * h + D * q - g * Q + G * q,
-                        2
-                    )
-                    - 4 * (D * g - d * G) * (H * q - h * Q)
+            // == X ==
+            // (v[-h,-H] -> q,Q)'s component length in d,D's direction
+            // over the length of the vector made by v([-h,-H]) -> [d,D] + v([f,F])
+            // that line:
+            // ((d + vf) - v*-h)
+            // d + v(f + h)
+            // result:
+            // (d(q - v*-h) + D(Q - v*-H)) / (<length of d,D> * sqrt((d + v(f + h))^2 + (D + v(F + H))^2))
+            // (d(q + vh) + D(Q + vH)) / (<length of d,D> * sqrt((d + v(f + h))^2 + (D + v(F + H))^2))
+            denom = (
+                quadrangle->edges[0].length
+                * sqrt(
+                    pow(d + idP->y * (f + h), 2)
+                    + pow(D + idP->y * (F + H), 2)
                 )
-                + d * H + d * Q - D * h - D * q + g * Q - G * q
-            )
-            / denomX
-        );
-
-        idP->y = (
-            (
-                sqrt(
-                    pow(
-                        - d * H + D * h - f * Q + F * q - h * Q + H * q,
-                        2
-                    )
-                    - 4 * (D * q - d * Q) * (F * h - f * H)
-                )
-                + d * H - D * h + f * Q - F * q + h * Q - H * q
-            )
-            / denomY
-        );
+            );
+            assert(denom != 0);
+            idP->x = (d * (q + idP->y * h) + D * (Q + idP->y * H)) / denom;
+        }
     }
 
     private:
@@ -420,6 +481,11 @@ void fromCanonical(OfxPointD p, OfxPointD renderScale, double par, OfxPointD* re
     result->y = p.y * renderScale.y;
 }
 
+void toCanonical(OfxPointD p, OfxPointD renderScale, double par, OfxPointD* result) {
+    result->x = par * p.x / renderScale.x;
+    result->y = p.y / renderScale.y;
+}
+
 void bilinear(double x, double y, Image* img, float* outPix, int componentCount) {
     auto floorX = floor(x);
     auto floorY = floor(y);
@@ -459,7 +525,17 @@ void CornerPinPlugin::render(const RenderArguments &args)
     fromCanonical(_bottomRight->getValueAtTime(args.time), args.renderScale, par, &quad.edges[1].p);
     fromCanonical(_topRight->getValueAtTime(args.time), args.renderScale, par, &quad.edges[2].p);
     fromCanonical(_topLeft->getValueAtTime(args.time), args.renderScale, par, &quad.edges[3].p);
-    if (!quad.initialise()) {return;}
+    if (!quad.initialise()) {
+        for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
+            auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, y);
+            for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
+                for (int c=0; c < dstComponentCount; c++, dstPix++) {
+                    *dstPix = 0;
+                }
+            }
+        }
+        return;
+    }
 
     OfxPointI p;
     OfxPointD srcPD;
@@ -467,6 +543,7 @@ void CornerPinPlugin::render(const RenderArguments &args)
     auto_ptr<float> bilinSrcPix(new float[srcComponentCount]);
     std::vector<std::vector<OfxPointD>> intersections;
     std::vector<OfxPointD> polyPoints;
+    OfxPointD canonPolyPoint;
 
     for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
         auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, y);
@@ -482,7 +559,8 @@ void CornerPinPlugin::render(const RenderArguments &args)
                         iter < qPoint.intersectionPoly.edges.end();
                         iter++
                     ) {
-                        polyPoints.push_back(iter->p);
+                        toCanonical(iter->p, args.renderScale, par, &canonPolyPoint);
+                        polyPoints.push_back(canonPolyPoint);
                     }
                     intersections.push_back(polyPoints);
                 }
@@ -504,8 +582,10 @@ void CornerPinPlugin::render(const RenderArguments &args)
                         *dstPix = bilinSrcPix.get()[c];
                         // if (c == 0) {
                         //     *dstPix = srcPD.x;
-                        // } else {
+                        // } else if (c == 1) {
                         //     *dstPix = srcPD.y;
+                        // } else {
+                        //     *dstPix = 0;
                         // }
                     } else {
                         *dstPix = 0;

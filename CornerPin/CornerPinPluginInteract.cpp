@@ -37,18 +37,12 @@ bool CornerPinPluginInteract::draw(const DrawArgs &args) {
 
     auto intersections = ((CornerPinPlugin*)_effect)->getIntersections();
 
-    // std::cout << args.renderScale.x << " " << args.renderScale.y << std::endl;
-    // std::cout << intersections->size() << std::endl;
-    // std::cout.flush();
-
     glColor3f(1, 0.5, 0.5);
 
     for (auto iter = intersections.begin(); iter < intersections.end(); iter++) {
         glBegin(GL_LINE_LOOP);
         for (auto iter2 = iter->begin(); iter2 < iter->end(); iter2++) {
-            // std::cout << "drawing " << iter2->x << "," << iter2->y << std::endl;
-            // std::cout.flush();
-            glVertex2d(iter2->x / args.renderScale.x, iter2->y / args.renderScale.y);
+            glVertex2d(iter2->x, iter2->y);
         }
         glEnd();
     }
