@@ -1,5 +1,8 @@
 #include "TranslateMapPlugin.h"
 #include "ofxsCoords.h"
+#include "../QuadrangleDistort/QuadrangleDistort.h"
+
+using namespace QuadrangleDistort;
 
 
 TranslateMapPlugin::TranslateMapPlugin(OfxImageEffectHandle handle)
@@ -28,7 +31,74 @@ bool TranslateMapPlugin::isIdentity(const IsIdentityArguments &args,
 #endif
 )
 {
-    return false;
+    if (_srcClip->isConnected() && !_transClip->isConnected()) {
+        identityClip = _srcClip;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void TranslateMapPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois) {
+    rois.setRegionOfInterest(*_srcClip, _srcClip->getRegionOfDefinition(args.time));
+    rois.setRegionOfInterest(*_transClip, _transClip->getRegionOfDefinition(args.time));
+}
+
+inline void addPixelValue(OfxPointD p, float* values, int componentCount, double weight, Image* outImg, double* ratioSums, OfxRectI window) {
+    int floorX = floor(p.x);
+    int floorY = floor(p.y);
+    float* PIX;
+    auto width = window.x2 - window.x1;
+    auto height = window.y2 - window.y1;
+    float* valuePtr;
+    if (p.x == floorX && p.y == floorY) {
+        if (
+            floorX < window.x1
+            || floorX >= window.x2
+            || floorY < window.y1
+            || floorY >= window.y2
+        ) {return;}
+        PIX = (float*)outImg->getPixelAddress(floorX, floorY);
+        valuePtr = values;
+        for (int c=0; c < componentCount; c++, PIX++, valuePtr++) {
+            *PIX += *valuePtr;
+        }
+        ratioSums[
+            (floorY - window.y1) * width + (floorX - window.x1)
+        ]++;
+        return;
+    }
+
+    // we actually need to affect neighbouring pixels
+    auto weightX = p.x - floorX;
+    auto weightY = p.y - floorY;
+    int actualX, actualY;
+    double finalWeight;
+    for (int y=0; y < 2; y++) {
+        for (int x=0; x < 2; x++) {
+            actualX = floorX + x;
+            actualY = floorY + y;
+            if (
+                actualX < window.x1
+                || actualX >= window.x2
+                || actualY < window.y1
+                || actualY >= window.y2
+            ) {continue;}
+            finalWeight = (
+                (x == 0 ? 1 - weightX : weightX)
+                * (y == 0 ? 1 - weightY : weightY)
+                * weight
+            );
+            PIX = (float*)outImg->getPixelAddress(actualX, actualY);
+            valuePtr = values;
+            for (int c=0; c < componentCount; c++, PIX++, valuePtr++) {
+                *PIX += *valuePtr * finalWeight;
+            }
+            ratioSums[
+                (actualY - window.y1) * width + (actualX - window.x1)
+            ] += finalWeight;
+        }
+    }
 }
 
 // the overridden render function
@@ -43,45 +113,124 @@ void TranslateMapPlugin::render(const RenderArguments &args)
     if (trans_component_count < 2) {return;}
     auto_ptr<Image> srcImg(_srcClip->fetchImage(args.time));
     auto srcROD = srcImg->getRegionOfDefinition();
-    auto src_component_count = srcImg->getPixelComponentCount();
+    auto srcComponentCount = srcImg->getPixelComponentCount();
+    auto srcPar = srcImg->getPixelAspectRatio();
     auto_ptr<Image> dstImg(_dstClip->fetchImage(args.time));
-    auto dst_component_count = dstImg->getPixelComponentCount();
-    auto component_count = std::min(
-        src_component_count, dst_component_count
+    auto dstComponentCount = dstImg->getPixelComponentCount();
+    auto componentCount = std::min(
+        srcComponentCount, dstComponentCount
     );
 
-    // default to black
+    float* outPIX;
+
+    // start entire output at 0
+    // initialise all the sums of ratios for each output pixel
+    auto windowWidth = args.renderWindow.x2 - args.renderWindow.x1;
+    auto windowHeight = args.renderWindow.y2 - args.renderWindow.y1;
+    auto_ptr<double> ratioSums(new double[windowHeight * windowWidth]);
+    auto ratioSumsPtr = ratioSums.get();
     for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
-        for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
-            auto outPix = (float*)dstImg->getPixelAddress(x, y);
-            for (int c=0; c < dst_component_count; c++, outPix++) {
-                *outPix = 0;
+        for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++, ratioSumsPtr++) {
+            *ratioSumsPtr = 0;
+            outPIX = (float*)dstImg->getPixelAddress(x, y);
+            for (int c=0; c < dstComponentCount; c++, outPIX++) {
+                *outPIX = 0;
             }
         }
     }
 
-    auto srcPix = (float*)srcImg->getPixelData();
-    auto transPix = (float*)transImg->getPixelData();
-    for (int y=transROD.y1; y < transROD.y2; y++) {
-        for (int x=transROD.x1;
-            x < transROD.x2;
-            x++, srcPix += src_component_count, transPix += trans_component_count
-        ) {
-            auto new_x = x + transPix[0] * args.renderScale.x;
-            auto new_y = y + transPix[1] * args.renderScale.y;
-            if (
-                new_x >= args.renderWindow.x1 && new_x < args.renderWindow.x2
-                && new_y >= args.renderWindow.y1 && new_y < args.renderWindow.y2
-            ) {
-                // std::cout << new_x << ", " << new_y << std::endl;
-                auto outPix = (float*)dstImg->getPixelAddressNearest(round(new_x), round(new_y));
-                for (int c=0; c < component_count; c++, outPix++) {
-                    // std::cout << c << " ";
-                    *outPix = srcPix[c];
+    OfxPointD p;
+    OfxPointD transVect;
+    OfxPointD prevTransVect;
+    OfxPointD cornerPoint;
+    bool allSame;
+    Quadrangle quad;
+    OfxRectI quadBounds;
+    OfxRectI intersectBounds;
+    OfxPointD transPoint;
+    float* transPIX;
+    OfxPointD srcPoint;
+    double intersection;
+    auto_ptr<float> values(new float[componentCount]);
+    for (p.y=srcROD.y1; p.y < srcROD.y2; p.y++) {
+        for (p.x=srcROD.x1; p.x < srcROD.x2; p.x++) {
+            // establish quadrangle points
+            allSame = true;
+            auto edgePtr = quad.edges;
+            for (int i=0; i < 4; i++, edgePtr++) {
+                cornerPoint.x = p.x + (i % 3); // 1 and 2
+                cornerPoint.y = p.y + (i >> 1); // 2 and 3
+                transPIX = (float*)transImg->getPixelAddressNearest(
+                    cornerPoint.x, cornerPoint.y
+                );
+                transVect.x = transPIX[0] * args.renderScale.x / srcPar;
+                transVect.y = transPIX[1] * args.renderScale.y;
+                if (i > 0) {
+                    // so far all same and same as last one
+                    allSame = (
+                        allSame
+                        && transVect.x == prevTransVect.x
+                        && transVect.y == prevTransVect.y
+                    );
                 }
-                // std::cout << std::endl;
+                prevTransVect = transVect;
+                vectorAdd(cornerPoint, transVect, &edgePtr->p);
+            }
+
+            // all the same? There's no distortion,
+            // we just know whence to draw this pixel
+            // Also if the quad is invalid, do the same.
+            // I have good reason to believe initialise won't be
+            // call if allSame is true
+            if (allSame || !quad.initialise()) {
+                auto srcPIX = (float*)srcImg->getPixelAddressNearest(p.x, p.y);
+                addPixelValue(
+                    quad.edges[0].p, srcPIX, componentCount, 1,
+                    dstImg.get(), ratioSums.get(), args.renderWindow
+                );
+                continue;
+            }
+
+            // it's distorted, let's bblaaay
+            // go through every pixel inside the smallest rect
+            // containing this quadrangle, intersected with render window
+            quad.bounds(&quadBounds);
+            rectIntersect(&quadBounds, &args.renderWindow, &intersectBounds);
+            for (transPoint.y=intersectBounds.y1; transPoint.y < intersectBounds.y2; transPoint.y++) {
+                for (transPoint.x=intersectBounds.x1; transPoint.x < intersectBounds.x2; transPoint.x++) {
+                    QuadranglePixel quadPix(&quad, transPoint);
+                    if (quadPix.intersection <= 0) {continue;}
+                    quadPix.calculateIdentityPoint(&srcPoint);
+                    if (
+                        IsNaN(srcPoint.x)
+                        || IsNaN(srcPoint.y)
+                        || srcPoint.x < 0
+                        || srcPoint.x >= 1
+                        || srcPoint.y < 0
+                        || srcPoint.y >= 1
+                    ) {continue;}
+                    srcPoint.x += p.x;
+                    srcPoint.y += p.y;
+                    bilinear(
+                        srcPoint.x, srcPoint.y, srcImg.get(), values.get(), componentCount
+                    );
+                    addPixelValue(
+                        transPoint, values.get(), componentCount, quadPix.intersection,
+                        dstImg.get(), ratioSums.get(), args.renderWindow
+                    );
+                }
             }
         }
     }
-    std::cout << "returning" << std::endl;
+
+    ratioSumsPtr = ratioSums.get();
+    for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
+        for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++, ratioSumsPtr++) {
+            if (*ratioSumsPtr == 0) {continue;}
+            outPIX = (float*)dstImg->getPixelAddress(x, y);
+            for (int c=0; c < componentCount; c++, outPIX++) {
+                *outPIX /= *ratioSumsPtr;
+            }
+        }
+    }
 }

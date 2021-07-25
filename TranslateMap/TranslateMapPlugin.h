@@ -37,6 +37,8 @@ private:
 
     virtual void getClipPreferences(ClipPreferencesSetter &clipPreferences) OVERRIDE FINAL;
 
+    virtual void getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois);
+
 private:
     Clip* _srcClip;
     Clip* _transClip;
