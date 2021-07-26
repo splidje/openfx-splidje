@@ -76,7 +76,7 @@ void CornerPinPlugin::render(const RenderArguments &args)
         return;
     }
 
-    OfxPointI p;
+    OfxPointD p;
     OfxPointD srcPD;
     OfxPointI srcPI;
     auto_ptr<float> bilinSrcPix(new float[srcComponentCount]);
@@ -84,11 +84,9 @@ void CornerPinPlugin::render(const RenderArguments &args)
     std::vector<OfxPointD> polyPoints;
     OfxPointD canonPolyPoint;
 
-    for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
-        auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, y);
-        for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
-            p.x = x;
-            p.y = y;
+    for (p.y=args.renderWindow.y1; p.y < args.renderWindow.y2; p.y++) {
+        auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, p.y);
+        for (p.x=args.renderWindow.x1; p.x < args.renderWindow.x2; p.x++) {
             auto qPoint = QuadranglePixel(&quad, p);
             if (qPoint.intersection > 0) {
                 if (qPoint.intersection < 1) {

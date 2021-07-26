@@ -154,6 +154,7 @@ void TranslateMapPlugin::render(const RenderArguments &args)
     auto_ptr<float> values(new float[componentCount]);
     for (p.y=srcROD.y1; p.y < srcROD.y2; p.y++) {
         for (p.x=srcROD.x1; p.x < srcROD.x2; p.x++) {
+            if (abort()) {return;}
             // establish quadrangle points
             allSame = true;
             auto edgePtr = quad.edges;
@@ -198,17 +199,27 @@ void TranslateMapPlugin::render(const RenderArguments &args)
             rectIntersect(&quadBounds, &args.renderWindow, &intersectBounds);
             for (transPoint.y=intersectBounds.y1; transPoint.y < intersectBounds.y2; transPoint.y++) {
                 for (transPoint.x=intersectBounds.x1; transPoint.x < intersectBounds.x2; transPoint.x++) {
+                    if (abort()) {return;}
                     QuadranglePixel quadPix(&quad, transPoint);
+                    if (transPoint.x == 1422 && transPoint.y == 429) {
+                        std::cout << quadPix.intersection << std::endl;
+                    }
                     if (quadPix.intersection <= 0) {continue;}
                     quadPix.calculateIdentityPoint(&srcPoint);
+                    if (transPoint.x == 1422 && transPoint.y == 429) {
+                        std::cout << srcPoint.x << "," << srcPoint.y << std::endl;
+                    }
                     if (
                         IsNaN(srcPoint.x)
                         || IsNaN(srcPoint.y)
-                        || srcPoint.x < 0
-                        || srcPoint.x >= 1
-                        || srcPoint.y < 0
-                        || srcPoint.y >= 1
-                    ) {continue;}
+                    ) {
+                        srcPoint.x = 0;
+                        srcPoint.y = 0;
+                    }
+                    if (srcPoint.x < 0) {srcPoint.x = 0;}
+                    if (srcPoint.x >= 1) {srcPoint.x = 1 - QUADRANGLEDISTORT_DELTA;}
+                    if (srcPoint.y < 0) {srcPoint.y = 0;}
+                    if (srcPoint.y >= 1) {srcPoint.y = 1 - QUADRANGLEDISTORT_DELTA;}
                     srcPoint.x += p.x;
                     srcPoint.y += p.y;
                     bilinear(
@@ -226,6 +237,7 @@ void TranslateMapPlugin::render(const RenderArguments &args)
     ratioSumsPtr = ratioSums.get();
     for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
         for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++, ratioSumsPtr++) {
+            if (abort()) {return;}
             if (*ratioSumsPtr == 0) {continue;}
             outPIX = (float*)dstImg->getPixelAddress(x, y);
             for (int c=0; c < componentCount; c++, outPIX++) {

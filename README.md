@@ -39,3 +39,9 @@ I'm getting a creeping feeling this isn't quite what I personally want, and mayb
 ## FaceTrack
 
 You need to download https://github.com/italojs/facial-landmarks-recognition/raw/master/shape_predictor_68_face_landmarks.dat to the FaceTrack folder to build (it's ~100MB and it's binary data, so I've decided not to add it to the repo).
+
+## TranslateMap
+
+Plug in a uv map of translations per pixel, and those pixels in the source will be translated by that amount.
+
+e.g. Create a radial, resize it to line-up with the corner of the mouth in a picture of a face, put a Multiply under the radial, plug that into the Translations input of the TranslateMap, plug the face into the Source input, tweak the R and G of the Multiply, and you'll end up sort of pin warping the corner of the mouth.
