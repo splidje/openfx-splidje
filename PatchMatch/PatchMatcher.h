@@ -60,10 +60,8 @@ private:
     SimpleImage* resample(const Image* image, double scale);
     void initialiseLevel();
     bool propagateAndSearch(int iterNum, int iterLen);
-    inline void averagerAdd(int x, int y);
-    inline void score(int xSrc, int ySrc, int xTrg, int yTrg
-                     ,float* best, bool haveIdeal=false
-                     ,double idealX=0, double idealY=0, double idealRad=0);
+    inline void score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
+                     ,float idealRadSq=-1, float idealRad=0, float idealX=0, float idealY=0);
     inline void initScan(int xSrc, int ySrc, int xTrg, int yTrg);
     inline void nextScanRow();
 
@@ -77,7 +75,7 @@ private:
     auto_ptr<SimpleImage> _imgTrg;
     auto_ptr<SimpleImage> _imgVect;
     int _numLevels, _startLevel, _endLevel, _level, _iterationNum, _iterationLength, _offX, _offY;
-    double _iterations, _acceptableScore, _radicalImpairmentWeight, _maxDist;
+    double _iterations, _acceptableScore, _spatialImpairmentFactor, _maxDist;
     OfxPointI _logCoords;
 
     struct {
@@ -93,11 +91,6 @@ private:
         int *_offX;
         int _curOffX, _offXMax, _offXMin;
     } _scan;
-
-    struct {
-        int count, sumX, sumY;
-        int xs[8], ys[8];
-    } _averager;
 };
 
 inline int boundsWidth(const OfxRectI& bounds) {return bounds.x2 - bounds.x1;}

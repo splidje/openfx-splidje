@@ -1,10 +1,14 @@
 Bundle/Linux-64-debug
+Bundle/Linux-64-release
 .vscode
 
 *.jpeg
 *.png
 *.mp4
 *.ntp*
+*.dat
 
 PatchMatch/seagull_vects_v001/
 natron crash_001
+
+CornerPin/notes_*.txt

@@ -111,10 +111,10 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         }
     }
     {
-        auto param = desc.defineDoubleParam(kParamRadicalImpairmentWeight);
-        param->setLabel(kParamRadicalImpairmentWeightLabel);
-        param->setHint(kParamRadicalImpairmentWeightHint);
-        param->setDefault(0);
+        auto param = desc.defineDoubleParam(kParamSpatialImpairmentFactor);
+        param->setLabel(kParamSpatialImpairmentFactorLabel);
+        param->setHint(kParamSpatialImpairmentFactorHint);
+        param->setDefault(kParamSpatialImpairmentFactorDefault);
         if (page) {
             page->addChild(*param);
         }

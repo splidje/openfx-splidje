@@ -23,7 +23,7 @@ PatchMatchPlugin::PatchMatchPlugin(OfxImageEffectHandle handle)
     endLevel = fetchIntParam(kParamEndLevel);
     iterations = fetchDoubleParam(kParamIterations);
     acceptableScore = fetchDoubleParam(kParamAcceptableScore);
-    radicalImpairmentWeight = fetchDoubleParam(kParamRadicalImpairmentWeight);
+    spatialImpairmentFactor = fetchDoubleParam(kParamSpatialImpairmentFactor);
     randomSeed = fetchIntParam(kParamRandomSeed);
     logCoords = fetchInt2DParam(kParamLogCoords);
 }
