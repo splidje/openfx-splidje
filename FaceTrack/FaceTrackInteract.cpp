@@ -1,4 +1,5 @@
 #include "FaceTrackInteract.h"
+#include <iostream>
 
 #ifdef __APPLE__
 #ifndef GL_SILENCE_DEPRECATION
@@ -13,27 +14,56 @@
 FaceTrackInteract::FaceTrackInteract(OfxInteractHandle handle, OFX::ImageEffect* effect)
     : OFX::OverlayInteract(handle)
 {
-    _faceTopLeft = effect->fetchDouble2DParam(kParamFaceTopLeft);
-    addParamToSlaveTo(_faceTopLeft);
-    _faceBottomRight = effect->fetchDouble2DParam(kParamFaceBottomRight);
-    addParamToSlaveTo(_faceBottomRight);
-    _eyebrowLeftLeft = effect->fetchDouble2DParam(kParamEyebrowLeftLeft);
-    addParamToSlaveTo(_eyebrowLeftLeft);
-    _eyebrowLeftRight = effect->fetchDouble2DParam(kParamEyebrowLeftRight);
-    addParamToSlaveTo(_eyebrowLeftRight);
-    _eyebrowRightLeft = effect->fetchDouble2DParam(kParamEyebrowRightLeft);
-    addParamToSlaveTo(_eyebrowRightLeft);
-    _eyebrowRightRight = effect->fetchDouble2DParam(kParamEyebrowRightRight);
-    addParamToSlaveTo(_eyebrowRightRight);
+    _faceBottomLeft = effect->fetchDouble2DParam(kParamFaceBottomLeft);
+    addParamToSlaveTo(_faceBottomLeft);
+    _faceTopRight = effect->fetchDouble2DParam(kParamFaceTopRight);
+    addParamToSlaveTo(_faceTopRight);
+    // Jaw
+    for (int i=0; i < kLandmarkCountJaw; i++) {
+        _jaw[i] = effect->fetchDouble2DParam(kParamJaw(i));
+        addParamToSlaveTo(_jaw[i]);
+    }
+    // Eyebrows
+    for (int i=0; i < kLandmarkCountEyebrowRight; i++) {
+        _eyebrowRight[i] = effect->fetchDouble2DParam(kParamEyebrowRight(i));
+        addParamToSlaveTo(_eyebrowRight[i]);
+    }
+    for (int i=0; i < kLandmarkCountEyebrowLeft; i++) {
+        _eyebrowLeft[i] = effect->fetchDouble2DParam(kParamEyebrowLeft(i));
+        addParamToSlaveTo(_eyebrowLeft[i]);
+    }
+    // Nose
+    for (int i=0; i < kLandmarkCountNoseBridge; i++) {
+        _noseBridge[i] = effect->fetchDouble2DParam(kParamNoseBridge(i));
+        addParamToSlaveTo(_noseBridge[i]);
+    }
+    for (int i=0; i < kLandmarkCountNoseBottom; i++) {
+        _noseBottom[i] = effect->fetchDouble2DParam(kParamNoseBottom(i));
+        addParamToSlaveTo(_noseBottom[i]);
+    }
+    // Eyes
+    for (int i=0; i < kLandmarkCountEyeRight; i++) {
+        _eyeRight[i] = effect->fetchDouble2DParam(kParamEyeRight(i));
+        addParamToSlaveTo(_eyeRight[i]);
+    }
+    for (int i=0; i < kLandmarkCountEyeLeft; i++) {
+        _eyeLeft[i] = effect->fetchDouble2DParam(kParamEyeLeft(i));
+        addParamToSlaveTo(_eyeLeft[i]);
+    }
+    // Mouth
+    for (int i=0; i < kLandmarkCountMouthOutside; i++) {
+        _mouthOutside[i] = effect->fetchDouble2DParam(kParamMouthOutside(i));
+        addParamToSlaveTo(_mouthOutside[i]);
+    }
+    for (int i=0; i < kLandmarkCountMouthInside; i++) {
+        _mouthInside[i] = effect->fetchDouble2DParam(kParamMouthInside(i));
+        addParamToSlaveTo(_mouthInside[i]);
+    }
 }
 
-void drawLine(Double2DParam* p1, Double2DParam* p2, double time) {
+void addVertex(Double2DParam* p1, double time) {
     auto p1Val = p1->getValueAtTime(time);
-    auto p2Val = p2->getValueAtTime(time);
-    glBegin(GL_LINE_LOOP);
     glVertex2f(p1Val.x, p1Val.y);
-    glVertex2f(p2Val.x, p2Val.y);
-    glEnd();
 }
 
 bool
@@ -43,22 +73,108 @@ FaceTrackInteract::draw(const DrawArgs &args)
     glMatrixMode(GL_PROJECTION);
     glMatrixMode(GL_MODELVIEW); // Modelview should be used on Nuke
 
-    auto topLeft = _faceTopLeft->getValueAtTime(args.time);
-    auto bottomRight = _faceBottomRight->getValueAtTime(args.time);
+    auto bottomLeft = _faceBottomLeft->getValueAtTime(args.time);
+    auto topRight = _faceTopRight->getValueAtTime(args.time);
 
     glColor3f(1, 0, 0);
     glBegin(GL_LINE_LOOP);
-    glVertex2f(topLeft.x, topLeft.y);
-    glVertex2f(bottomRight.x, topLeft.y);
-    glVertex2f(bottomRight.x, bottomRight.y);
-    glVertex2f(topLeft.x, bottomRight.y);
+    glVertex2f(bottomLeft.x, bottomLeft.y);
+    glVertex2f(topRight.x, bottomLeft.y);
+    glVertex2f(topRight.x, topRight.y);
+    glVertex2f(bottomLeft.x, topRight.y);
     glEnd();
 
+    // Jaw
+    glColor3f(0, 0, 1);
+
+    glBegin(GL_LINES);
+    for (int i=0; i < kLandmarkCountJaw; i++) {
+        addVertex(_jaw[i], args.time);
+        if (i > 0 && i < kLandmarkCountJaw - 1) {
+            addVertex(_jaw[i], args.time);
+        }
+    }
+    glEnd();
+
+    // Eyebrows
     glColor3f(0, 1, 0);
-    // left eyebrow
-    drawLine(_eyebrowLeftLeft, _eyebrowLeftRight, args.time);
-    // right eyebrow
-    drawLine(_eyebrowRightLeft, _eyebrowRightRight, args.time);
+
+    // Right Eyebrow
+    glBegin(GL_LINES);
+    for (int i=0; i < kLandmarkCountEyebrowRight; i++) {
+        addVertex(_eyebrowRight[i], args.time);
+        if (i > 0 && i < kLandmarkCountEyebrowRight - 1) {
+            addVertex(_eyebrowRight[i], args.time);
+        }
+    }
+    glEnd();
+
+    // Left Eyebrow
+    glBegin(GL_LINES);
+    for (int i=0; i < kLandmarkCountEyebrowLeft; i++) {
+        addVertex(_eyebrowLeft[i], args.time);
+        if (i > 0 && i < kLandmarkCountEyebrowLeft - 1) {
+            addVertex(_eyebrowLeft[i], args.time);
+        }
+    }
+    glEnd();
+
+    // Nose
+    glColor3f(1, 1, 0);
+
+    // Nose Bridge
+    glBegin(GL_LINES);
+    for (int i=0; i < kLandmarkCountNoseBridge; i++) {
+        addVertex(_noseBridge[i], args.time);
+        if (i > 0 && i < kLandmarkCountNoseBridge - 1) {
+            addVertex(_noseBridge[i], args.time);
+        }
+    }
+    glEnd();
+
+    // Nose Tip
+    glBegin(GL_LINES);
+    for (int i=0; i < kLandmarkCountNoseBottom; i++) {
+        addVertex(_noseBottom[i], args.time);
+        if (i > 0 && i < kLandmarkCountNoseBottom - 1) {
+            addVertex(_noseBottom[i], args.time);
+        }
+    }
+    glEnd();
+
+    // Eyes
+    glColor3f(1, 0, 1);
+
+    // Right Eye
+    glBegin(GL_LINE_LOOP);
+    for (int i=0; i < kLandmarkCountEyeRight; i++) {
+        addVertex(_eyeRight[i], args.time);
+    }
+    glEnd();
+
+    // Left Eye
+    glBegin(GL_LINE_LOOP);
+    for (int i=0; i < kLandmarkCountEyeLeft; i++) {
+        addVertex(_eyeLeft[i], args.time);
+    }
+    glEnd();
+
+    // Mouth
+    glColor3f(0, 1, 1);
+
+    // Mouth Outisde
+    glBegin(GL_LINE_LOOP);
+    for (int i=0; i < kLandmarkCountMouthOutside; i++) {
+        addVertex(_mouthOutside[i], args.time);
+    }
+    glEnd();
+
+    // Mouth Inside
+    glBegin(GL_LINE_LOOP);
+    for (int i=0; i < kLandmarkCountMouthInside; i++) {
+        addVertex(_mouthInside[i], args.time);
+    }
+    glEnd();
 
     return true;
 } // draw

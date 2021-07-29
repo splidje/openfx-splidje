@@ -48,61 +48,132 @@ void FaceTrackPluginFactory::describeInContext(ImageEffectDescriptor &desc, Cont
     dstClip->setTemporalClipAccess(false);
     dstClip->setSupportsTiles(true);
 
-    PageParamDescriptor *page = desc.definePageParam("Controls");
+    // Controls
     {
-        auto param = desc.definePushButtonParam(kParamTrack);
-        param->setLabel(kParamTrackLabel);
-        param->setHint(kParamTrackHint);
-        if (page) {
-            page->addChild(*param);
+        auto page = desc.definePageParam("Controls");
+        {
+            auto param = desc.definePushButtonParam(kParamTrack);
+            param->setLabel(kParamTrackLabel);
+            param->setHint(kParamTrackHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.definePushButtonParam(kParamTrackForward);
+            param->setLabel(kParamTrackForwardLabel);
+            param->setHint(kParamTrackForwardHint);
+            if (page) {
+                page->addChild(*param);
+            }
         }
     }
+    
+    // Face
     {
-        auto param = desc.defineDouble2DParam(kParamFaceTopLeft);
-        param->setLabel(kParamFaceTopLeftLabel);
-        param->setHint(kParamFaceTopLeftHint);
-        if (page) {
-            page->addChild(*param);
+        auto page = desc.definePageParam("Face");
+        {
+            auto param = desc.defineDouble2DParam(kParamFaceBottomLeft);
+            param->setLabel(kParamFaceBottomLeftLabel);
+            param->setHint(kParamFaceBottomLeftHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDouble2DParam(kParamFaceTopRight);
+            param->setLabel(kParamFaceTopRightLabel);
+            param->setHint(kParamFaceTopRightHint);
+            if (page) {
+                page->addChild(*param);
+            }
         }
     }
+
+    // Jaw
     {
-        auto param = desc.defineDouble2DParam(kParamFaceBottomRight);
-        param->setLabel(kParamFaceBottomRightLabel);
-        param->setHint(kParamFaceBottomRightHint);
-        if (page) {
-            page->addChild(*param);
+        auto page = desc.definePageParam("Jaw");
+        for (int i=0; i < kLandmarkCountJaw; i++) {
+            auto param = desc.defineDouble2DParam(kParamJaw(i));
+            if (page) {
+                page->addChild(*param);
+            }
         }
     }
+
+    // Eyebrows
     {
-        auto param = desc.defineDouble2DParam(kParamEyebrowLeftLeft);
-        param->setLabel(kParamEyebrowLeftLeft);
-        param->setHint(kParamEyebrowLeftLeft);
-        if (page) {
-            page->addChild(*param);
+        auto page = desc.definePageParam("Eyebrows");
+        {
+            for (int i=0; i < kLandmarkCountEyebrowRight; i++) {
+                auto param = desc.defineDouble2DParam(kParamEyebrowRight(i));
+                if (page) {
+                    page->addChild(*param);
+                }
+            }
+            for (int i=0; i < kLandmarkCountEyebrowLeft; i++) {
+                auto param = desc.defineDouble2DParam(kParamEyebrowLeft(i));
+                if (page) {
+                    page->addChild(*param);
+                }
+            }
         }
     }
+
+    // Nose
     {
-        auto param = desc.defineDouble2DParam(kParamEyebrowLeftRight);
-        param->setLabel(kParamEyebrowLeftRight);
-        param->setHint(kParamEyebrowLeftRight);
-        if (page) {
-            page->addChild(*param);
+        auto page = desc.definePageParam("Nose");
+        {
+            for (int i=0; i < kLandmarkCountNoseBridge; i++) {
+                auto param = desc.defineDouble2DParam(kParamNoseBridge(i));
+                if (page) {
+                    page->addChild(*param);
+                }
+            }
+            for (int i=0; i < kLandmarkCountNoseBottom; i++) {
+                auto param = desc.defineDouble2DParam(kParamNoseBottom(i));
+                if (page) {
+                    page->addChild(*param);
+                }
+            }
         }
     }
+
+    // Eyes
     {
-        auto param = desc.defineDouble2DParam(kParamEyebrowRightLeft);
-        param->setLabel(kParamEyebrowRightLeft);
-        param->setHint(kParamEyebrowRightLeft);
-        if (page) {
-            page->addChild(*param);
+        auto page = desc.definePageParam("Eyes");
+        {
+            for (int i=0; i < kLandmarkCountEyeRight; i++) {
+                auto param = desc.defineDouble2DParam(kParamEyeRight(i));
+                if (page) {
+                    page->addChild(*param);
+                }
+            }
+            for (int i=0; i < kLandmarkCountEyeLeft; i++) {
+                auto param = desc.defineDouble2DParam(kParamEyeLeft(i));
+                if (page) {
+                    page->addChild(*param);
+                }
+            }
         }
     }
+
+    // Mouth
     {
-        auto param = desc.defineDouble2DParam(kParamEyebrowRightRight);
-        param->setLabel(kParamEyebrowRightRight);
-        param->setHint(kParamEyebrowRightRight);
-        if (page) {
-            page->addChild(*param);
+        auto page = desc.definePageParam("Mouth");
+        {
+            for (int i=0; i < kLandmarkCountMouthOutside; i++) {
+                auto param = desc.defineDouble2DParam(kParamMouthOutside(i));
+                if (page) {
+                    page->addChild(*param);
+                }
+            }
+            for (int i=0; i < kLandmarkCountMouthInside; i++) {
+                auto param = desc.defineDouble2DParam(kParamMouthInside(i));
+                if (page) {
+                    page->addChild(*param);
+                }
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ Bundle/Linux-64-release
 .vscode
 
 *.jpeg
+*.jpg
 *.png
 *.mp4
 *.ntp*

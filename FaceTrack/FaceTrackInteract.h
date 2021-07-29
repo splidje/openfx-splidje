@@ -13,13 +13,18 @@ public:
     virtual bool draw(const DrawArgs &args);
 
 private:
-    Double2DParam* _faceTopLeft;
-    Double2DParam* _faceBottomRight;
+    Double2DParam* _faceBottomLeft;
+    Double2DParam* _faceTopRight;
 
-    Double2DParam* _eyebrowLeftLeft;
-    Double2DParam* _eyebrowLeftRight;
-    Double2DParam* _eyebrowRightLeft;
-    Double2DParam* _eyebrowRightRight;
+    Double2DParam* _jaw[kLandmarkCountJaw];
+    Double2DParam* _eyebrowRight[kLandmarkCountEyebrowRight];
+    Double2DParam* _eyebrowLeft[kLandmarkCountEyebrowLeft];
+    Double2DParam* _noseBridge[kLandmarkCountNoseBridge];
+    Double2DParam* _noseBottom[kLandmarkCountNoseBottom];
+    Double2DParam* _eyeRight[kLandmarkCountEyeRight];
+    Double2DParam* _eyeLeft[kLandmarkCountEyeLeft];
+    Double2DParam* _mouthOutside[kLandmarkCountMouthOutside];
+    Double2DParam* _mouthInside[kLandmarkCountMouthInside];
 };
 
 class FaceTrackOverlayDescriptor

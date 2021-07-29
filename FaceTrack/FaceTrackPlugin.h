@@ -27,6 +27,8 @@ private:
 
     virtual void changedParam(const InstanceChangedArgs &args, const std::string &paramName) OVERRIDE FINAL;
 
+    void trackTime(double t);
+
     void refreshShapePredictorFaceLandmarksFile();
 
 private:
@@ -34,11 +36,17 @@ private:
     dlib::shape_predictor _predictor;
     Clip* _srcClip;
     PushButtonParam* _track;
-    Double2DParam* _faceTopLeft;
-    Double2DParam* _faceBottomRight;
+    PushButtonParam* _trackForward;
+    Double2DParam* _faceBottomLeft;
+    Double2DParam* _faceTopRight;
 
-    Double2DParam* _eyebrowLeftLeft;
-    Double2DParam* _eyebrowLeftRight;
-    Double2DParam* _eyebrowRightLeft;
-    Double2DParam* _eyebrowRightRight;
+    Double2DParam* _jaw[kLandmarkCountJaw];
+    Double2DParam* _eyebrowRight[kLandmarkCountEyebrowRight];
+    Double2DParam* _eyebrowLeft[kLandmarkCountEyebrowLeft];
+    Double2DParam* _noseBridge[kLandmarkCountNoseBridge];
+    Double2DParam* _noseBottom[kLandmarkCountNoseBottom];
+    Double2DParam* _eyeRight[kLandmarkCountEyeRight];
+    Double2DParam* _eyeLeft[kLandmarkCountEyeLeft];
+    Double2DParam* _mouthOutside[kLandmarkCountMouthOutside];
+    Double2DParam* _mouthInside[kLandmarkCountMouthInside];
 };
