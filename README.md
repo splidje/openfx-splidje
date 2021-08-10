@@ -45,3 +45,7 @@ You need to download https://github.com/italojs/facial-landmarks-recognition/raw
 Plug in a uv map of translations per pixel, and those pixels in the source will be translated by that amount.
 
 e.g. Create a radial, resize it to line-up with the corner of the mouth in a picture of a face, put a Multiply under the radial, plug that into the Translations input of the TranslateMap, plug the face into the Source input, tweak the R and G of the Multiply, and you'll end up sort of pin warping the corner of the mouth.
+
+## FaceTranslationMap
+
+Plug in Source and Target, it can track a face in both. It can then calculate the movement of the source face relative to a reference frame and use that to generate a translation map (to be used by TranslateMap) for moving the target face with the same movements.
