@@ -1,4 +1,4 @@
-PLUGINOBJECTS = FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackInteract.o
+PLUGINOBJECTS = FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackPluginInteract.o
 PLUGINNAME = FaceTrack
 RESOURCES = shape_predictor_68_face_landmarks.dat
 

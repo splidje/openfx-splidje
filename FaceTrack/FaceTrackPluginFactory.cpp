@@ -1,6 +1,6 @@
 #include "FaceTrackPluginFactory.h"
 #include "FaceTrackPlugin.h"
-#include "FaceTrackInteract.h"
+#include "FaceTrackPluginInteract.h"
 
 void FaceTrackPluginFactory::describe(ImageEffectDescriptor &desc)
 {
@@ -60,121 +60,19 @@ void FaceTrackPluginFactory::describeInContext(ImageEffectDescriptor &desc, Cont
             }
         }
         {
-            auto param = desc.definePushButtonParam(kParamTrackForward);
-            param->setLabel(kParamTrackForwardLabel);
-            param->setHint(kParamTrackForwardHint);
+            auto param = desc.definePushButtonParam(kParamTrackAll);
+            param->setLabel(kParamTrackAllLabel);
+            param->setHint(kParamTrackAllHint);
             if (page) {
                 page->addChild(*param);
             }
         }
     }
-    
+
     // Face
     {
         auto page = desc.definePageParam("Face");
-        {
-            auto param = desc.defineDouble2DParam(kParamFaceBottomLeft);
-            param->setLabel(kParamFaceBottomLeftLabel);
-            param->setHint(kParamFaceBottomLeftHint);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineDouble2DParam(kParamFaceTopRight);
-            param->setLabel(kParamFaceTopRightLabel);
-            param->setHint(kParamFaceTopRightHint);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-    }
-
-    // Jaw
-    {
-        auto page = desc.definePageParam("Jaw");
-        for (int i=0; i < kLandmarkCountJaw; i++) {
-            auto param = desc.defineDouble2DParam(kParamJaw(i));
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-    }
-
-    // Eyebrows
-    {
-        auto page = desc.definePageParam("Eyebrows");
-        {
-            for (int i=0; i < kLandmarkCountEyebrowRight; i++) {
-                auto param = desc.defineDouble2DParam(kParamEyebrowRight(i));
-                if (page) {
-                    page->addChild(*param);
-                }
-            }
-            for (int i=0; i < kLandmarkCountEyebrowLeft; i++) {
-                auto param = desc.defineDouble2DParam(kParamEyebrowLeft(i));
-                if (page) {
-                    page->addChild(*param);
-                }
-            }
-        }
-    }
-
-    // Nose
-    {
-        auto page = desc.definePageParam("Nose");
-        {
-            for (int i=0; i < kLandmarkCountNoseBridge; i++) {
-                auto param = desc.defineDouble2DParam(kParamNoseBridge(i));
-                if (page) {
-                    page->addChild(*param);
-                }
-            }
-            for (int i=0; i < kLandmarkCountNoseBottom; i++) {
-                auto param = desc.defineDouble2DParam(kParamNoseBottom(i));
-                if (page) {
-                    page->addChild(*param);
-                }
-            }
-        }
-    }
-
-    // Eyes
-    {
-        auto page = desc.definePageParam("Eyes");
-        {
-            for (int i=0; i < kLandmarkCountEyeRight; i++) {
-                auto param = desc.defineDouble2DParam(kParamEyeRight(i));
-                if (page) {
-                    page->addChild(*param);
-                }
-            }
-            for (int i=0; i < kLandmarkCountEyeLeft; i++) {
-                auto param = desc.defineDouble2DParam(kParamEyeLeft(i));
-                if (page) {
-                    page->addChild(*param);
-                }
-            }
-        }
-    }
-
-    // Mouth
-    {
-        auto page = desc.definePageParam("Mouth");
-        {
-            for (int i=0; i < kLandmarkCountMouthOutside; i++) {
-                auto param = desc.defineDouble2DParam(kParamMouthOutside(i));
-                if (page) {
-                    page->addChild(*param);
-                }
-            }
-            for (int i=0; i < kLandmarkCountMouthInside; i++) {
-                auto param = desc.defineDouble2DParam(kParamMouthInside(i));
-                if (page) {
-                    page->addChild(*param);
-                }
-            }
-        }
+        FaceTrackPluginBase::defineFaceParams(&desc, page, "");
     }
 }
 

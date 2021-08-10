@@ -2,7 +2,7 @@
 #include "ofxsProcessing.H"
 #include "ofxsMacros.h"
 #include "ofxsMaskMix.h"
-#include "triangleMaths.hpp"
+#include "../TriangleMaths/TriangleMaths.h"
 #include <cmath>
 
 #ifdef __APPLE__
