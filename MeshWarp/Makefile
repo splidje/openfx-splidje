@@ -1,4 +1,4 @@
-PLUGINOBJECTS = MeshWarp.o
+PLUGINOBJECTS = MeshWarp.o TriangleMaths.o
 PLUGINNAME = MeshWarp
 RESOURCES =
 
