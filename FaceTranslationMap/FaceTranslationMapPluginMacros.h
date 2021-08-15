@@ -18,6 +18,14 @@
 #define kParamTrackSourceAllLabel "Track Source All"
 #define kParamTrackSourceAllHint "Track Source All"
 
+#define kParamSourceHighFreqRemovalCount "sourceHighFrequencyRemovalCount"
+#define kParamSourceHighFreqRemovalCountLabel "Source High Frequency Removal Count"
+#define kParamSourceHighFreqRemovalCountHint "Source High Frequency Removal Count"
+
+#define kParamRemoveSourceHighFreqs "removeSourceHighFrequences"
+#define kParamRemoveSourceHighFreqsLabel "Remove Source High Frequences"
+#define kParamRemoveSourceHighFreqsHint "Remove Source High Frequences"
+
 #define kParamTrackTarget "trackTarget"
 #define kParamTrackTargetLabel "Track Target"
 #define kParamTrackTargetHint "Track Target"
@@ -50,6 +58,10 @@
 #define kParamOutputChoiceTargetLabel "Target"
 #define kParamOutputChoiceTargetHint "Target"
 
+#define kParamOutputChoiceUVMap "uvMap"
+#define kParamOutputChoiceUVMapLabel "UV Map"
+#define kParamOutputChoiceUVMapHint "UV Map"
+
 #define kParamOutputChoiceTranslationMap "translationMap"
 #define kParamOutputChoiceTranslationMapLabel "Translation Map"
 #define kParamOutputChoiceTranslationMapHint "Translation Map"
@@ -57,3 +69,7 @@
 #define kFaceParamsPrefixSource "source."
 #define kFaceParamsPrefixTarget "target."
 #define kFaceParamsPrefixRelative "relative."
+
+#define kParamFeather "feather"
+#define kParamFeatherLabel "Feather"
+#define kParamFeatherHint "Feather"
