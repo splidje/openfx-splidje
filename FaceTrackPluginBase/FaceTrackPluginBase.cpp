@@ -141,7 +141,9 @@ u_char float_to_u_char_clamped(float v) {
 }
 
 void setPointParam(Double2DParam* param, dlib::point val, OfxRectI bounds, double time) {
-    param->setValueAtTime(time, bounds.x1 + val.x(), bounds.y2 - val.y());
+    auto x = bounds.x1 + val.x();
+    auto y = bounds.y2 - val.y();
+    param->setValueAtTime(time, x, y);
 }
 
 void FaceTrackPluginBase::trackClipAtTime(Clip* clip, FaceParams* faceParams, double t) {

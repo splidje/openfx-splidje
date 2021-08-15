@@ -52,8 +52,8 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
 
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
-    dstClip->addSupportedComponent(ePixelComponentRGB);
-    dstClip->addSupportedComponent(ePixelComponentRGB);
+    dstClip->addSupportedComponent(ePixelComponentRGBA);
+    // dstClip->addSupportedComponent(ePixelComponentRGB);
     dstClip->addSupportedComponent(ePixelComponentAlpha);
     dstClip->setTemporalClipAccess(false);
     dstClip->setSupportsTiles(true);
@@ -73,6 +73,24 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             auto param = desc.definePushButtonParam(kParamTrackSourceAll);
             param->setLabel(kParamTrackSourceAllLabel);
             param->setHint(kParamTrackSourceAllHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineIntParam(kParamSourceHighFreqRemovalCount);
+            param->setLabel(kParamSourceHighFreqRemovalCountLabel);
+            param->setHint(kParamSourceHighFreqRemovalCountHint);
+            param->setAnimates(false);
+            param->setDefault(3);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.definePushButtonParam(kParamRemoveSourceHighFreqs);
+            param->setLabel(kParamRemoveSourceHighFreqsLabel);
+            param->setHint(kParamRemoveSourceHighFreqsHint);
             if (page) {
                 page->addChild(*param);
             }
@@ -132,10 +150,24 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
                 ,kParamOutputChoiceTarget
             );
             param->appendOption(
+                kParamOutputChoiceUVMapLabel
+                ,kParamOutputChoiceUVMapHint
+                ,kParamOutputChoiceUVMap
+            );
+            param->appendOption(
                 kParamOutputChoiceTranslationMapLabel
                 ,kParamOutputChoiceTranslationMapHint
                 ,kParamOutputChoiceTranslationMap
             );
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamFeather);
+            param->setLabel(kParamFeatherLabel);
+            param->setHint(kParamFeatherHint);
+            param->setDefault(10);
             if (page) {
                 page->addChild(*param);
             }
