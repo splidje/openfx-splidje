@@ -106,7 +106,6 @@ void FaceTranslationMapPlugin::render(const OFX::RenderArguments &args) {
     for (auto ptr=perimeter.begin(); ptr < perimeter.end(); ptr++, i++) {
         edgeIndicesToEdge.insert({createEdgeMapKey(ptr->indexer.i1, ptr->indexer.i2), i});
     }
-    this->redrawOverlays();
 
     // TODO: handle different y render scale and par
     auto feather = _feather->getValueAtTime(args.time) * args.renderScale.x;
