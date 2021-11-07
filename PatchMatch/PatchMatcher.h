@@ -70,12 +70,14 @@ private:
 
     auto_ptr<Image> _srcA;
     auto_ptr<Image> _srcB;
+    auto_ptr<Image> _srcInit;
 
     auto_ptr<SimpleImage> _imgSrc;
     auto_ptr<SimpleImage> _imgTrg;
     auto_ptr<SimpleImage> _imgVect;
-    int _numLevels, _startLevel, _endLevel, _level, _iterationNum, _iterationLength, _offX, _offY;
+    int _numLevels, _startLevel, _endLevel, _level, _iterationNum, _iterationLength, _offX, _offY, _temporalIterRefFrame;
     double _iterations, _acceptableScore, _spatialImpairmentFactor, _maxDist;
+    bool _iterateTemporally;
     OfxPointI _logCoords;
 
     struct {

@@ -24,6 +24,8 @@ PatchMatchPlugin::PatchMatchPlugin(OfxImageEffectHandle handle)
     iterations = fetchDoubleParam(kParamIterations);
     acceptableScore = fetchDoubleParam(kParamAcceptableScore);
     spatialImpairmentFactor = fetchDoubleParam(kParamSpatialImpairmentFactor);
+    iterateTemporally = fetchBooleanParam(kParamIterateTemporally);
+    temporalIterationReferenceFrame = fetchIntParam(kParamTemporalIterationReferenceFrame);
     randomSeed = fetchIntParam(kParamRandomSeed);
     logCoords = fetchInt2DParam(kParamLogCoords);
 }

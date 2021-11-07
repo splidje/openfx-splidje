@@ -46,6 +46,16 @@ using namespace OFX;
 #define kParamSpatialImpairmentFactorHint "Spatial Impairment Factor"
 #define kParamSpatialImpairmentFactorDefault 0
 
+#define kParamIterateTemporally "iterateTemporally"
+#define kParamIterateTemporallyLabel "Iterate Temporally"
+#define kParamIterateTemporallyHint "Iterate Temporally"
+#define kParamIterateTemporallyDefault false
+
+#define kParamTemporalIterationReferenceFrame "temporalIterationReferenceFrame"
+#define kParamTemporalIterationReferenceFrameLabel "Temporal Iteration Reference Frame"
+#define kParamTemporalIterationReferenceFrameHint "Temporal Iteration Reference Frame"
+#define kParamTemporalIterationReferenceFrameDefault 0
+
 #define kParamRandomSeed "seed"
 #define kParamRandomSeedLabel "Random Seed"
 #define kParamRandomSeedHint "Random Seed"
@@ -72,6 +82,8 @@ public:
     DoubleParam* iterations;
     DoubleParam* acceptableScore;
     DoubleParam* spatialImpairmentFactor;
+    BooleanParam* iterateTemporally;
+    IntParam* temporalIterationReferenceFrame;
     IntParam* randomSeed;
     Int2DParam* logCoords;
 

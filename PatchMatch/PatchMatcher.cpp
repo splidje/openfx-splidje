@@ -25,6 +25,12 @@ PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args
             args.time, _plugin->trgClip->getRegionOfDefinition(args.time)
         )
     );
+    // full initial vects
+    _srcInit.reset(
+        _plugin->initClip->fetchImage(
+            args.time, _plugin->initClip->getRegionOfDefinition(args.time)
+        )
+    );
     std::srand(_plugin->randomSeed->getValueAtTime(args.time));
     _logCoords = _plugin->logCoords->getValueAtTime(args.time);
     _logCoords.x /= args.renderScale.x;
@@ -52,9 +58,16 @@ PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args
     _endLevel = std::max(
         1, std::min(_numLevels, _plugin->endLevel->getValueAtTime(args.time))
     );
-    _startLevel = std::max(
-        1, std::min(_endLevel, _plugin->startLevel->getValueAtTime(args.time))
-    );
+    _iterateTemporally = _plugin->iterateTemporally->getValueAtTime(args.time);
+    _temporalIterRefFrame = _plugin->temporalIterationReferenceFrame->getValueAtTime(args.time);
+    if (_srcInit.get() || _iterateTemporally && _temporalIterRefFrame != args.time) {
+        _startLevel = _endLevel;
+    }
+    else {
+        _startLevel = std::max(
+            1, std::min(_endLevel, _plugin->startLevel->getValueAtTime(args.time))
+        );
+    }
     _iterations = _plugin->iterations->getValueAtTime(args.time);
     _acceptableScore = _plugin->acceptableScore->getValueAtTime(args.time);
     _spatialImpairmentFactor = _plugin->spatialImpairmentFactor->getValueAtTime(args.time);
@@ -235,12 +248,23 @@ void PatchMatcher::initialiseLevel()
         prevStepX = round(prevScaleX);
         prevStepY = round(prevScaleY);
     }
+    float* copyPix = NULL;
+    int copyComps = 0;
+    if (_srcInit.get()) {
+        copyPix = (float*)_srcInit->getPixelData();
+        copyComps = _srcInit->getPixelComponentCount();
+    }
     for (int y=0, pY=0; y < img->height; y++) {
         if (_plugin->abort()) {return;}
         auto prevCell = prevRow;
         for (int x=0, pX=0; x < img->width; x++) {
-            dataPix[0] = rand() % _imgSrc->width - x;
-            dataPix[1] = rand() % _imgSrc->height - y;
+            if (copyPix) {
+                dataPix[0] = copyPix[0];
+                dataPix[1] = copyPix[1];
+            } else {
+                dataPix[0] = rand() % _imgSrc->width - x;
+                dataPix[1] = rand() % _imgSrc->height - y;
+            }
             dataPix[2] = -1;
             score(x + dataPix[0], y + dataPix[1], x, y, dataPix);
             if (prevRow) {
@@ -256,6 +280,9 @@ void PatchMatcher::initialiseLevel()
                 }
             }
             dataPix += img->components;
+            if (copyPix) {
+                copyPix += copyComps;
+            }
         }
         if (prevRow && y % prevStepY && pY < _imgVect->height) {
             pY++;
@@ -297,13 +324,16 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
             auto havePrevY = dir > 0 && y > 0 || dir < 0 && y < _imgVect->height - 1;
             float prevXX, prevXY, prevYX, prevYY;
             OfxPointI prevV;
+            bool prevSame = true;
             if (havePrevX) {
                 prevV = _imgVect->vect(x - dir, y);
+                prevSame = prevV.x == cur[0] && prevV.y == cur[1];
                 prevXX = x + prevV.x;
                 prevXY = y + prevV.y;
             }
             if (havePrevY) {
                 prevV = _imgVect->vect(x, y - dir);
+                prevSame = prevSame && prevV.x == cur[0] && prevV.y == cur[1];
                 prevYX = x + prevV.x;
                 prevYY = y + prevV.y;
             }
@@ -316,14 +346,16 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
                 idealY = prevYY + radVY;
             }
 
-            // propagate
-            if (havePrevX) {
-                score(prevXX, prevXY, x, y, cur
-                     ,idealRadSq, idealRad, idealX, idealY);
-            }
-            if (havePrevY) {
-                score(prevYX, prevYY, x, y, cur
-                     ,idealRadSq, idealRad, idealX, idealY);
+            if (!prevSame) {
+                // propagate
+                if (havePrevX) {
+                    score(prevXX, prevXY, x, y, cur
+                        ,idealRadSq, idealRad, idealX, idealY);
+                }
+                if (havePrevY) {
+                    score(prevYX, prevYY, x, y, cur
+                        ,idealRadSq, idealRad, idealX, idealY);
+                }
             }
 
             // search
@@ -342,6 +374,7 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
                 auto sY = rand() % h + b;
                 score(
                     sX, sY, x, y, cur
+                        ,idealRadSq, idealRad, idealX, idealY
                 );
             }
         }
@@ -361,6 +394,7 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
     auto extCompsSrc = _imgSrc->components - components;
     auto extCompsTrg = _imgTrg->components - components;
     float total = 0;
+    float impairment = 0;
     int count = 0;
     auto bestTotal = best[2];
     auto haveBest = bestTotal >= 0;
@@ -369,7 +403,7 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
     } else if (idealRadSq >= 0 && _spatialImpairmentFactor) {
         auto distSq = sq(xSrc - idealX) + sq(ySrc - idealY);
         if (distSq > idealRadSq) {
-            total = _spatialImpairmentFactor * (sqrt(distSq) - idealRad) / _maxDist;
+            impairment = _spatialImpairmentFactor * (sqrt(distSq) - idealRad) / _maxDist;
         }
         auto bestDistSq = sq(xTrg + best[0] - idealX) + sq(yTrg + best[1] - idealY);
         if (bestDistSq > idealRadSq) {
@@ -399,7 +433,7 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
                 auto diff = *(_scan.pixTrg) - *(_scan.pixSrc);
                 if (diff < 0) {total -= diff;}
                 else {total += diff;}
-                if (total >= bestTotal) {
+                if (total + impairment >= bestTotal) {
                     if (logIt) {std::cout << "lose " << total << std::endl;}
                     t_score += difftime(time(NULL), st_score);
                     return;
@@ -414,7 +448,7 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
     if (count < _patch.count) {
         total *= _patch.count / double(count);
     }
-    if (total >= bestTotal) {
+    if (total + impairment >= bestTotal) {
         if (logIt) {std::cout << "lose " << total << std::endl;}
         t_score += difftime(time(NULL), st_score);
         return;

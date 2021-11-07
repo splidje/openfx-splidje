@@ -19,7 +19,7 @@ void PatchMatchPluginFactory::describe(ImageEffectDescriptor &desc)
     desc.setHostFrameThreading(false);
     desc.setSupportsMultiResolution(true);
     desc.setSupportsTiles(true);
-    desc.setTemporalClipAccess(false);
+    desc.setTemporalClipAccess(true);
     desc.setRenderTwiceAlways(false);
     desc.setSupportsMultipleClipPARs(true);
     desc.setSupportsMultipleClipDepths(false);
@@ -33,7 +33,7 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
     srcClip->addSupportedComponent(ePixelComponentRGBA);
     srcClip->addSupportedComponent(ePixelComponentRGB);
     srcClip->addSupportedComponent(ePixelComponentAlpha);
-    srcClip->setTemporalClipAccess(false);
+    srcClip->setTemporalClipAccess(true);
     srcClip->setSupportsTiles(true);
     srcClip->setIsMask(false);
 
@@ -42,7 +42,7 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
     trgClip->addSupportedComponent(ePixelComponentRGBA);
     trgClip->addSupportedComponent(ePixelComponentRGB);
     trgClip->addSupportedComponent(ePixelComponentAlpha);
-    trgClip->setTemporalClipAccess(false);
+    trgClip->setTemporalClipAccess(true);
     trgClip->setSupportsTiles(true);
     trgClip->setIsMask(false);
 
@@ -115,6 +115,26 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
         param->setLabel(kParamSpatialImpairmentFactorLabel);
         param->setHint(kParamSpatialImpairmentFactorHint);
         param->setDefault(kParamSpatialImpairmentFactorDefault);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineBooleanParam(kParamIterateTemporally);
+        param->setLabel(kParamIterateTemporallyLabel);
+        param->setHint(kParamIterateTemporallyHint);
+        param->setDefault(kParamIterateTemporallyDefault);
+        param->setAnimates(false);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineIntParam(kParamTemporalIterationReferenceFrame);
+        param->setLabel(kParamTemporalIterationReferenceFrameLabel);
+        param->setHint(kParamTemporalIterationReferenceFrameHint);
+        param->setDefault(kParamTemporalIterationReferenceFrameDefault);
+        param->setAnimates(false);
         if (page) {
             page->addChild(*param);
         }
