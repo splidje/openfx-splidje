@@ -75,9 +75,9 @@ private:
     auto_ptr<SimpleImage> _imgSrc;
     auto_ptr<SimpleImage> _imgTrg;
     auto_ptr<SimpleImage> _imgVect;
-    int _numLevels, _startLevel, _endLevel, _level, _iterationNum, _iterationLength, _offX, _offY, _temporalIterRefFrame;
+    int _numLevels, _startLevel, _endLevel, _level, _iterationNum, _iterationLength, _offX, _offY, _initFrame;
     double _iterations, _acceptableScore, _spatialImpairmentFactor, _maxDist;
-    bool _iterateTemporally;
+    bool _initFromFrame;
     OfxPointI _logCoords;
 
     struct {

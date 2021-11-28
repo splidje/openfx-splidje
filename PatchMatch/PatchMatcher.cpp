@@ -1,8 +1,48 @@
 #include "PatchMatcher.h"
 #include <ctime>
 
+#define CACHE_SIZE 1000
+
 time_t st_score;
 double t_score = 0;
+auto_ptr<SimpleImage> vectImageCache[CACHE_SIZE];
+int nextVectImageCacheIdx = 0;
+typedef std::pair<PatchMatchPlugin*, double> pluginFramePair;
+std::map<pluginFramePair, int> pluginFrameToVectImageCacheIdx;
+std::map<int, pluginFramePair> vectImageCacheIdxToPluginFrame;
+
+
+SimpleImage* getCachedVectImage(PatchMatchPlugin* plugin, double frame) {
+    pluginFramePair pluginFrame = {plugin, frame};
+    auto resIdx = pluginFrameToVectImageCacheIdx.find(pluginFrame);
+    if (resIdx == pluginFrameToVectImageCacheIdx.end()) {
+        auto args = RenderArguments();
+        args.time = frame;
+        args.renderScale.x = 1;
+        args.renderScale.y = 1;
+        OfxRectD rect = plugin->dstClip->getRegionOfDefinition(frame);
+        args.renderWindow.x1 = rect.x1;
+        args.renderWindow.x2 = rect.x2;
+        args.renderWindow.y1 = rect.y1;
+        args.renderWindow.y2 = rect.y2;
+        PatchMatcher(plugin, args).render();
+        resIdx = pluginFrameToVectImageCacheIdx.find(pluginFrame);
+    }
+    return vectImageCache[resIdx->second].get();
+}
+
+
+void cacheVectImage(PatchMatchPlugin* plugin, double frame, SimpleImage* img) {
+    pluginFramePair pluginFrame = {plugin, frame};
+    auto res = vectImageCacheIdxToPluginFrame.find(nextVectImageCacheIdx);
+    if (res != vectImageCacheIdxToPluginFrame.end()) {
+        pluginFrameToVectImageCacheIdx.erase(res->second);
+    }
+    vectImageCache[nextVectImageCacheIdx].reset(img);
+    pluginFrameToVectImageCacheIdx[pluginFrame] = nextVectImageCacheIdx;
+    vectImageCacheIdxToPluginFrame[nextVectImageCacheIdx] = pluginFrame;
+    nextVectImageCacheIdx = (nextVectImageCacheIdx + 1) % CACHE_SIZE;
+}
 
 
 inline float sq(float x) {
@@ -58,9 +98,17 @@ PatchMatcher::PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args
     _endLevel = std::max(
         1, std::min(_numLevels, _plugin->endLevel->getValueAtTime(args.time))
     );
-    _iterateTemporally = _plugin->iterateTemporally->getValueAtTime(args.time);
-    _temporalIterRefFrame = _plugin->temporalIterationReferenceFrame->getValueAtTime(args.time);
-    if (_srcInit.get() || _iterateTemporally && _temporalIterRefFrame != args.time) {
+    auto iterateTemporally = _plugin->iterateTemporally->getValueAtTime(args.time);
+    auto temporalIterRefFrame = _plugin->temporalIterationReferenceFrame->getValueAtTime(args.time);
+    _initFromFrame = iterateTemporally && temporalIterRefFrame != args.time;
+    if (_initFromFrame) {
+        if (temporalIterRefFrame < args.time) {
+            _initFrame = args.time - 1;
+        } else {
+            _initFrame = args.time + 1;
+        }
+    }
+    if (_srcInit.get() || _initFromFrame) {
         _startLevel = _endLevel;
     }
     else {
@@ -108,6 +156,9 @@ void PatchMatcher::render() {
     _srcA.reset();
     _srcB.reset();
 
+    auto imgVect = _imgVect.release();
+    cacheVectImage(_plugin, _renderArgs.time, imgVect);
+
     // get a dst image
     auto_ptr<Image> dst(_plugin->dstClip->fetchImage(_renderArgs.time));
 
@@ -121,12 +172,12 @@ void PatchMatcher::render() {
             auto inX = x - dstRoD.x1;
             auto inY = y - dstRoD.y1;
             float* outPix = NULL;
-            if (inX >= 0 && inX < _imgVect->width
-                    && inY >= 0 && inY < _imgVect->height) {
-                outPix = _imgVect->data + ((inY * _imgVect->width + inX) * _imgVect->components);
+            if (inX >= 0 && inX < imgVect->width
+                    && inY >= 0 && inY < imgVect->height) {
+                outPix = imgVect->data + ((inY * imgVect->width + inX) * imgVect->components);
             }
             for (int c=0; c < dstComponents; c++, dstPix++) {
-                if (outPix && c < _imgVect->components) {
+                if (outPix && c < imgVect->components) {
                     *dstPix = *outPix;
                     outPix++;
                 }
@@ -250,7 +301,11 @@ void PatchMatcher::initialiseLevel()
     }
     float* copyPix = NULL;
     int copyComps = 0;
-    if (_srcInit.get()) {
+    if (_initFromFrame) {
+        auto tempImg = getCachedVectImage(_plugin, _initFrame);
+        copyPix = tempImg->data;
+        copyComps = tempImg->components;
+    } else if (_srcInit.get()) {
         copyPix = (float*)_srcInit->getPixelData();
         copyComps = _srcInit->getPixelComponentCount();
     }
