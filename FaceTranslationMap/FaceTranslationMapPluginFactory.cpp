@@ -120,6 +120,46 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             }
         }
         {
+            auto param = desc.definePushButtonParam(kParamStabiliseSource);
+            param->setLabel(kParamStabiliseSourceLabel);
+            param->setHint(kParamStabiliseSourceHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDouble2DParam(kParamStabilisedCentre);
+            param->setLabel(kParamStabilisedCentreLabel);
+            param->setHint(kParamStabilisedCentreHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDouble2DParam(kParamStabilisedTranslate);
+            param->setLabel(kParamStabilisedTranslateLabel);
+            param->setHint(kParamStabilisedTranslateHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamStabilisedScale);
+            param->setLabel(kParamStabilisedScaleLabel);
+            param->setHint(kParamStabilisedScaleHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamStabilisedRotate);
+            param->setLabel(kParamStabilisedRotateLabel);
+            param->setHint(kParamStabilisedRotateHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
             auto param = desc.definePushButtonParam(kParamCalculateRelative);
             param->setLabel(kParamCalculateRelativeLabel);
             param->setHint(kParamCalculateRelativeHint);
