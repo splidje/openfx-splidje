@@ -30,6 +30,8 @@ private:
 
     void calculateRelative(double t);
 
+    void stabiliseSourceAtTime(double t);
+
     virtual void changedParam(const InstanceChangedArgs &args, const std::string &paramName) OVERRIDE FINAL;
 
 private:
@@ -43,6 +45,11 @@ private:
     PushButtonParam* _trgTrack;
     PushButtonParam* _trgTrackAll;
     IntParam* _referenceFrame;
+    PushButtonParam* _stabSrc;
+    Double2DParam* _stabCentre;
+    Double2DParam* _stabTrans;
+    DoubleParam* _stabScale;
+    DoubleParam* _stabRot;
     PushButtonParam* _calcRel;
     PushButtonParam* _calcRelAll;
     ChoiceParam* _output;

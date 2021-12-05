@@ -23,6 +23,11 @@ FaceTranslationMapPlugin::FaceTranslationMapPlugin(OfxImageEffectHandle handle)
     _trgTrack = fetchPushButtonParam(kParamTrackTarget);
     _trgTrackAll = fetchPushButtonParam(kParamTrackTargetAll);
     _referenceFrame = fetchIntParam(kParamReferenceFrame);
+    _stabSrc = fetchPushButtonParam(kParamStabiliseSource);
+    _stabCentre = fetchDouble2DParam(kParamStabilisedCentre);
+    _stabTrans = fetchDouble2DParam(kParamStabilisedTranslate);
+    _stabScale = fetchDoubleParam(kParamStabilisedScale);
+    _stabRot = fetchDoubleParam(kParamStabilisedRotate);
     _calcRel = fetchPushButtonParam(kParamCalculateRelative);
     _calcRelAll = fetchPushButtonParam(kParamCalculateRelativeAll);
     _output = fetchChoiceParam(kParamOutput);
@@ -253,6 +258,87 @@ void FaceTranslationMapPlugin::calculateRelative(double t) {
     }
 }
 
+typedef std::pair<OfxPointD, OfxPointD> _edge_t;
+
+inline OfxPointD _vectAdd(OfxPointD p1, OfxPointD p2) {
+    OfxPointD res;
+    res.x = p1.x + p2.x;
+    res.y = p1.y + p2.y;
+    return res;
+}
+
+inline OfxPointD _vectSub(OfxPointD p1, OfxPointD p2) {
+    OfxPointD res;
+    res.x = p1.x - p2.x;
+    res.y = p1.y - p2.y;
+    return res;
+}
+
+inline OfxPointD _vectMult(OfxPointD p, double f) {
+    OfxPointD res;
+    res.x = p.x * f;
+    res.y = p.y * f;
+    return res;
+}
+
+inline OfxPointD _edgeCentre(_edge_t e) {
+    OfxPointD res;
+    res.x = (e.first.x + e.second.x) / 2;
+    res.y = (e.first.y + e.second.y) / 2;
+    return res;
+}
+
+inline double _vectMagSq(OfxPointD e) {
+    return e.x * e.x + e.y * e.y;
+}
+
+inline OfxPointD _vectRot(OfxPointD v, double ang) {
+    OfxPointD res;
+    auto cosAng = cos(ang);
+    auto sinAng = sin(ang);
+    res.x = cosAng * v.x - sinAng * v.y;
+    res.y = sinAng * v.x + cosAng * v.y;
+    return res;
+}
+
+inline void _transformPointParam(Double2DParam* param, double t, OfxPointD centre, double rot, double scale, OfxPointD trans) {
+    auto p = param->getValueAtTime(t);
+    auto vect = _vectSub(p, centre);
+    p = _vectAdd(_vectAdd(_vectMult(_vectRot(vect, rot), scale), centre), trans);
+    param->setValueAtTime(t, p);
+}
+
+void FaceTranslationMapPlugin::stabiliseSourceAtTime(double t) {
+    auto refFrame = _referenceFrame->getValueAtTime(t);
+    auto jawStartParam = _srcFaceParams.landmarks[kLandmarkIndexJawStart];
+    auto jawEndParam = _srcFaceParams.landmarks[kLandmarkIndexJawEnd];
+    _edge_t refEdge = {
+        jawStartParam->getValueAtTime(refFrame)
+        ,jawEndParam->getValueAtTime(refFrame)
+    };
+    _edge_t edge = {
+        jawStartParam->getValueAtTime(t)
+        ,jawEndParam->getValueAtTime(t)
+    };
+    auto refCentre = _edgeCentre(refEdge);
+    auto centre = _edgeCentre(edge);
+    _stabCentre->setValueAtTime(t, centre);
+    auto trans = _vectSub(refCentre, centre);
+    _stabTrans->setValueAtTime(t, trans);
+    auto refVect = _vectSub(refEdge.second, refEdge.first);
+    auto vect = _vectSub(edge.second, edge.first);
+    auto scale = sqrt(_vectMagSq(refVect) / _vectMagSq(vect));
+    _stabScale->setValueAtTime(t, scale);
+    auto refAng = atan2(refVect.y, refVect.x);
+    auto ang = atan2(vect.y, vect.x);
+    auto rot = refAng - ang;
+    _stabRot->setValueAtTime(t, rot);
+    // transform the landmarks at time t
+    for (auto i = 0; i < kLandmarkCount; i++) {
+        _transformPointParam(_srcFaceParams.landmarks[i], t, centre, rot, scale, trans);
+    }
+}
+
 void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
     if (paramName == kParamTrackSource) {
         trackClipAtTime(_srcClip, &_srcFaceParams, args.time);
@@ -332,6 +418,15 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         progressStart("Tracking Target Face");
         for (auto t=timeline.min; t <= timeline.max; t++) {
             trackClipAtTime(_trgClip, &_trgFaceParams, t);
+            if (!progressUpdate((t - timeline.min) / (timeline.max - timeline.min))) {return;}
+        }
+        progressEnd();
+    } else if (paramName == kParamStabiliseSource) {
+        OfxRangeD timeline;
+        timeLineGetBounds(timeline.min, timeline.max);
+        progressStart("Stabilising Source");
+        for (auto t=timeline.min; t <= timeline.max; t++) {
+            stabiliseSourceAtTime(t);
             if (!progressUpdate((t - timeline.min) / (timeline.max - timeline.min))) {return;}
         }
         progressEnd();
