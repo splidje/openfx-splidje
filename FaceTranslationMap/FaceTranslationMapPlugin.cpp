@@ -357,7 +357,7 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         OfxRangeD timeline;
         timeLineGetBounds(timeline.min, timeline.max);
         long count = timeline.max - timeline.min + 1;
-        std::vector<OfxPointD[kLandmarkCount]> data(count);
+        std::vector<std::array<OfxPointD, kLandmarkCount>> data(count);
         for (int t=0; t < count; t++) {
             for (int i=0; i < kLandmarkCount; i++) {
                 data[t][i] = _srcFaceParams.landmarks[i]->getValueAtTime(timeline.min + t);
@@ -365,7 +365,7 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         }
         // ensure even
         auto evenCount = (count >> 1) << 1;
-        std::vector<OfxPointD[kLandmarkCount][2]> freqResp(freqCount);
+        std::vector<std::array<std::array<OfxPointD, 2>, kLandmarkCount>> freqResp(freqCount);
         for (int f=0; f < freqCount; f++) {
             for (int i=0; i < kLandmarkCount; i++) {
                 for (int ph=0; ph < 2; ph++) {
