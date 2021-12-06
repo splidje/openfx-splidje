@@ -1,5 +1,6 @@
 #include "PatchMatcher.h"
 #include <ctime>
+#include <limits>
 
 time_t st_score;
 double t_score = 0;
@@ -365,7 +366,7 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
     auto bestTotal = best[2];
     auto haveBest = bestTotal >= 0;
     if (!haveBest) {
-        bestTotal = MAXFLOAT;
+        bestTotal = std::numeric_limits<float>::max();
     } else if (idealRadSq >= 0 && _spatialImpairmentFactor) {
         auto distSq = sq(xSrc - idealX) + sq(ySrc - idealY);
         if (distSq > idealRadSq) {
