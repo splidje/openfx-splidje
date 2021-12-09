@@ -419,6 +419,7 @@ bool PatchMatcher::propagateAndSearch(int iterNum, int iterLen)
             int srchCentX = x + cur[0];
             int srchCentY = y + cur[1];
             for (; radW >= 1 && radH >= 1; radW /= 2, radH /= 2) {
+                if (_plugin->abort()) {return allAcceptable;}
                 int radWi = ceil(radW);
                 int radHi = ceil(radH);
                 auto l = std::max(0, srchCentX - radWi);
@@ -483,6 +484,7 @@ void PatchMatcher::score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
 
     initScan(xSrc, ySrc, xTrg, yTrg);
     for (int y=0; y < _scan.numRows; y++) {
+        if (_plugin->abort()) {return;}
         for (int x=0; x < _scan.numCols; x++) {
             for (int c=0; c < components; c++, _scan.pixSrc++, _scan.pixTrg++) {
                 auto diff = *(_scan.pixTrg) - *(_scan.pixSrc);
