@@ -2,6 +2,7 @@
 #include "CornerPinPlugin.h"
 #include "ofxsCoords.h"
 #include "../QuadrangleDistort/QuadrangleDistort.h"
+#include <iostream>
 
 using namespace QuadrangleDistort;
 
@@ -64,7 +65,8 @@ void CornerPinPlugin::render(const RenderArguments &args)
     fromCanonical(_bottomRight->getValueAtTime(args.time), args.renderScale, par, &quad.edges[1].p);
     fromCanonical(_topRight->getValueAtTime(args.time), args.renderScale, par, &quad.edges[2].p);
     fromCanonical(_topLeft->getValueAtTime(args.time), args.renderScale, par, &quad.edges[3].p);
-    if (!quad.initialise()) {
+    quad.initialise();
+    if (quad.zeroEdgeCount > 1) {
         for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
             auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, y);
             for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
@@ -86,8 +88,10 @@ void CornerPinPlugin::render(const RenderArguments &args)
 
     for (p.y=args.renderWindow.y1; p.y < args.renderWindow.y2; p.y++) {
         auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, p.y);
+        if (!dstPix) {continue;}
         for (p.x=args.renderWindow.x1; p.x < args.renderWindow.x2; p.x++) {
             auto qPoint = QuadranglePixel(&quad, p);
+            // 1917 579
             if (qPoint.intersection > 0) {
                 if (qPoint.intersection < 1) {
                     polyPoints.clear();
