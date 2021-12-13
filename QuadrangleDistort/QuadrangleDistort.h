@@ -30,7 +30,7 @@ namespace QuadrangleDistort {
         OfxPointD vect;
         double length;
         OfxPointD norm;
-        bool isInitialised = false;
+        bool isInitialised;
 
         bool initialise();
         double crosses(const Edge* edge);
@@ -43,8 +43,9 @@ namespace QuadrangleDistort {
         public:
 
         Edge edges[4];
+        int zeroEdgeCount;
 
-        bool initialise();
+        void initialise();
 
         void bounds(OfxRectI *rect);
     };

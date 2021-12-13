@@ -51,9 +51,20 @@ void QuadrangleDistort::rectIntersect(const OfxRectI* a, const OfxRectI* b, OfxR
 // Edge
 
 bool Edge::initialise() {
-    if (vect.x == 0 && vect.y == 0) {return false;}
+    if (
+        vect.x >= -QUADRANGLEDISTORT_DELTA
+        && vect.x <= QUADRANGLEDISTORT_DELTA
+        && vect.y >= -QUADRANGLEDISTORT_DELTA
+        && vect.y <= QUADRANGLEDISTORT_DELTA
+    ) {
+        isInitialised = false;
+        return false;
+    }
     length = sqrt(vectorMagSq(vect));
-    if (length == 0) {return false;}
+    if (length <= QUADRANGLEDISTORT_DELTA) {
+        isInitialised = false;
+        return false;
+    }
     OfxPointD tang;
     vectorRotate90(vect, &tang);
     vectorDivide(tang, length, &norm);
@@ -104,17 +115,19 @@ double QuadrangleDistort::calcInsideNess(const OfxPointD p, const Edge* cutEdge)
 
 // Quadrangle
 
-bool Quadrangle::initialise() {
+void Quadrangle::initialise() {
     Edge* edge = edges;
+    zeroEdgeCount = 0;
     for (int i=0; i < 4; i++, edge++) {
         vectorSubtract(
             edges[(i+1) % 4].p,
             edge->p,
             &edge->vect
         );
-        if (!edge->initialise()) {return false;}
+        if (!edge->initialise()) {
+            zeroEdgeCount++;
+        }
     }
-    return true;
 }
 
 void Quadrangle::bounds(OfxRectI *rect) {
@@ -247,10 +260,23 @@ QuadranglePixel::QuadranglePixel(Quadrangle* quad, OfxPointD p)
 }
 
 void QuadranglePixel::calculateIdentityPoint(OfxPointD* idP) {
-    auto e0 = quadrangle->edges[0].vect;
-    auto e1 = quadrangle->edges[1].vect;
-    auto e2 = quadrangle->edges[2].vect;
-    auto e3 = quadrangle->edges[3].vect;
+    assert(quadrangle->zeroEdgeCount <= 1);
+    auto orient = 0;
+    // if we have a zero edge and it's not the 2nd,
+    // we'll need to reorient
+    if (quadrangle->zeroEdgeCount && quadrangle->edges[1].isInitialised) {
+        if (!quadrangle->edges[2].isInitialised) {
+            orient = 1;
+        } else if (!quadrangle->edges[3].isInitialised) {
+            orient = 2;
+        } else if (!quadrangle->edges[0].isInitialised) {
+            orient = 3;
+        }
+    }
+    auto e0 = quadrangle->edges[orient].vect;
+    auto e1 = quadrangle->edges[(1 + orient) % 4].vect;
+    auto e2 = quadrangle->edges[(2 + orient) % 4].vect;
+    auto e3 = quadrangle->edges[(3 + orient) % 4].vect;
     auto d = e0.x;
     auto D = e0.y;
     auto f = e1.x;
@@ -259,8 +285,8 @@ void QuadranglePixel::calculateIdentityPoint(OfxPointD* idP) {
     auto G = e2.y;
     auto h = e3.x;
     auto H = e3.y;
-    auto q = _fromP[0].x;
-    auto Q = _fromP[0].y;
+    auto q = _fromP[orient].x;
+    auto Q = _fromP[orient].y;
 
     double denom;
 
@@ -312,7 +338,7 @@ void QuadranglePixel::calculateIdentityPoint(OfxPointD* idP) {
             // ((q - ud)*-h + (Q - uD)*-H) / (<-h,-H length> * sqrt((-h - u(g + d))^2 + (-H - u(G + D))^2))
             // (h(ud - q) + H(uD - Q)) / (<-h,-H length> * sqrt((-h - u(g + d))^2 + (-H - u(G + D))^2))
             denom = (
-                quadrangle->edges[3].length
+                quadrangle->edges[(3 + orient) % 4].length
                 * sqrt(
                     pow(-h - idP->x * (g + d), 2)
                     + pow(-H - idP->x * (G + D), 2)
@@ -352,7 +378,7 @@ void QuadranglePixel::calculateIdentityPoint(OfxPointD* idP) {
         // (d(q - v*-h) + D(Q - v*-H)) / (<length of d,D> * sqrt((d + v(f + h))^2 + (D + v(F + H))^2))
         // (d(q + vh) + D(Q + vH)) / (<length of d,D> * sqrt((d + v(f + h))^2 + (D + v(F + H))^2))
         denom = (
-            quadrangle->edges[0].length
+            quadrangle->edges[orient].length
             * sqrt(
                 pow(d + idP->y * (f + h), 2)
                 + pow(D + idP->y * (F + H), 2)
@@ -361,13 +387,39 @@ void QuadranglePixel::calculateIdentityPoint(OfxPointD* idP) {
         assert(denom != 0);
         idP->x = (d * (q + idP->y * h) + D * (Q + idP->y * H)) / denom;
     }
+
+    // fix orientation
+    if (!orient) {
+        return;
+    }
+    auto y = idP->y;
+    if (orient == 1) {
+        idP->y = idP->x;
+        idP->x = 1 - y;
+    } else if (orient == 2) {
+        idP->y = 1 - y;
+        idP->x = 1 - idP->x;
+    } else if (orient == 3) {
+        idP->y = 1 - idP->x;
+        idP->x = y;
+    }
 }
 
 void QuadranglePixel::calcIntersection() {
+    // Minimum valid polygon would be a triangle
+    if (quadrangle->zeroEdgeCount > 1) {
+        intersection = 0;
+        return;
+    }
     // First sweep
     double dists[4];
     int entirelyInsideCount = 0;
     for (int i=0; i < 4; i++) {
+        // a zero edge
+        if (!quadrangle->edges[i].isInitialised) {
+            entirelyInsideCount++;
+            continue;
+        }
         dists[i] = vectorDotProduct(_fromP[i], quadrangle->edges[i].norm);
         // definitely entirely outside
         if (dists[i] <= -M_SQRT2) {
@@ -393,7 +445,10 @@ void QuadranglePixel::calcIntersection() {
     // dp2 = dp1 + a*x2 + b*y2
     bool allInside = true;
     for (int i=0; i < 4 && allInside; i++) {
-        for (int j=1; j < 4 && allInside; j++) {
+        if (!quadrangle->edges[i].isInitialised) {
+            continue;
+        }
+        for (int j=0; j < 4 && allInside; j++) {
             allInside = (
                 dists[i]
                 + (j % 3 ? quadrangle->edges[i].norm.x : 0)
@@ -421,11 +476,15 @@ void QuadranglePixel::calcIntersection() {
     nextP.x = p.x;
     polies[0].addPoint(nextP);
     polies[0].close();
-    Polygon *outPoly;
+    Polygon *inPoly = polies;
+    Polygon *outPoly = polies + 1;
     for (int i=0; i < 4; i++) {
-        outPoly = polies + 1 - (i % 2);
+        if (!quadrangle->edges[i].isInitialised) {
+            continue;
+        }
         outPoly->clear();
-        polies[i % 2].cut(&quadrangle->edges[i], outPoly);
+        inPoly->cut(&quadrangle->edges[i], outPoly);
+        std::swap(inPoly, outPoly);
     }
     intersection = outPoly->area();
     intersectionPoly = *outPoly;
