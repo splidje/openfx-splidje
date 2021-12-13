@@ -8,9 +8,9 @@ FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackPluginInteract.o\
 TriangleMaths.o\
 FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o\
 QuadrangleDistort.o\
-TranslateMapPluginFactory.o TranslateMapPlugin.o\
 CornerPinPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o\
 EstimateOffsetMapPluginFactory.o EstimateOffsetMapPlugin.o EstimateOffsetMapPluginInteract.o
+# TranslateMapPluginFactory.o TranslateMapPlugin.o\
 # MeshWarp.o\
 
 SRCDIR = ..

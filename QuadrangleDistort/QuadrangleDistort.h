@@ -1,4 +1,5 @@
 #include "ofxsImageEffect.h"
+#include <set>
 
 // our smallest distance for snapping and
 // dealing with rounding errors in calculations.
@@ -48,6 +49,8 @@ namespace QuadrangleDistort {
         void initialise();
 
         void bounds(OfxRectI *rect);
+
+        void fix(const std::set<int>* lockedIndices, std::set<int>* changedIndices);
     };
 
     class Polygon {

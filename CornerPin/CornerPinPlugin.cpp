@@ -37,6 +37,22 @@ void CornerPinPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &arg
     rois.setRegionOfInterest(*_srcClip, _srcClip->getRegionOfDefinition(args.time));
 }
 
+void CornerPinPlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
+    if (paramName == kParamFix) {
+        Quadrangle quad;
+        quad.edges[0].p = _bottomLeft->getValueAtTime(args.time);
+        quad.edges[1].p = _bottomRight->getValueAtTime(args.time);
+        quad.edges[2].p = _topRight->getValueAtTime(args.time);
+        quad.edges[3].p = _topLeft->getValueAtTime(args.time);
+        quad.initialise();
+        quad.fix(NULL, NULL);
+        _bottomLeft->setValueAtTime(args.time, quad.edges[0].p);
+        _bottomRight->setValueAtTime(args.time, quad.edges[1].p);
+        _topRight->setValueAtTime(args.time, quad.edges[2].p);
+        _topLeft->setValueAtTime(args.time, quad.edges[3].p);
+    }
+}
+
 void fromCanonical(OfxPointD p, OfxPointD renderScale, double par, OfxPointD* result) {
     result->x = p.x * renderScale.x / par;
     result->y = p.y * renderScale.y;

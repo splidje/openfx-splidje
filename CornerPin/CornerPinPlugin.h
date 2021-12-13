@@ -26,6 +26,8 @@ private:
 
     virtual void getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois);
 
+    virtual void changedParam(const InstanceChangedArgs &args, const std::string &paramName) OVERRIDE FINAL;
+
     void setIntersections(std::vector<std::vector<OfxPointD>> intersections);
 
 private:

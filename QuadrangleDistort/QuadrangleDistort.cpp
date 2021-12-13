@@ -141,6 +141,40 @@ void Quadrangle::bounds(OfxRectI *rect) {
     }
 }
 
+void Quadrangle::fix(const std::set<int>* lockedIndices, std::set<int>* changedIndices) {
+    assert(!lockedIndices || lockedIndices->count() <= 2);
+    if (changedIndices) {
+        changedIndices->clear();
+    }
+    for (auto i=0; i < 4; i++) {
+        if (lockedIndices && lockedIndices->find(i) == lockedIndices->end()) {
+            continue;
+        }
+        auto edgePtr = &edges[i];
+        for (auto j=0; j < 2; j++) {
+            auto oppIndex = (i + 2 + j) % 4;
+            auto oppEdgePtr = &edges[oppIndex];
+            if (calcInsideNess(edgePtr->p, oppEdgePtr) < 0) {
+                auto adjEdgePtr = &edges[(oppIndex + 2) % 4];
+                auto crosses = adjEdgePtr->crosses(oppEdgePtr);
+                if (crosses >= 0 && crosses <= 1) {
+                    edgePtr->p.x = adjEdgePtr->p.x + adjEdgePtr->vect.x * crosses;
+                    edgePtr->p.y = adjEdgePtr->p.y + adjEdgePtr->vect.y * crosses;
+                } else if (j == 0) {
+                    edgePtr->p = edges[(i+5) % 4].p;
+                } else if (j == 1) {
+                    edgePtr->p = edges[(i+1) % 4].p;
+                }
+                if (changedIndices) {
+                    changedIndices->insert(i);
+                }
+                initialise();
+                break;
+            }
+        }
+    }
+}
+
 // Polygon
 
 void Polygon::addPoint(OfxPointD p) {

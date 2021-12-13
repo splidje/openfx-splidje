@@ -16,3 +16,5 @@
 #define kParamTopLeft "topLeft"
 
 #define kParamTopRight "topRight"
+
+#define kParamFix "fix"

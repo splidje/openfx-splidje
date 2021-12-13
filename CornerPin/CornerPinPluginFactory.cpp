@@ -75,6 +75,12 @@ void CornerPinPluginFactory::describeInContext(ImageEffectDescriptor &desc, Cont
             page->addChild(*param);
         }
     }
+    {
+        auto param = desc.definePushButtonParam(kParamFix);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
 }
 
 ImageEffect* CornerPinPluginFactory::createInstance(OfxImageEffectHandle handle, ContextEnum /*context*/)
