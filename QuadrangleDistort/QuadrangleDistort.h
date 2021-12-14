@@ -48,6 +48,8 @@ namespace QuadrangleDistort {
 
         void initialise();
 
+        bool isValid();
+
         void bounds(OfxRectI *rect);
 
         void fix(const std::set<int>* lockedIndices, std::set<int>* changedIndices);

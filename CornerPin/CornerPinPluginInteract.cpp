@@ -1,6 +1,7 @@
 #include "CornerPinPluginInteract.h"
 #include "CornerPinPluginMacros.h"
 #include "CornerPinPlugin.h"
+#include "../QuadrangleDistort/QuadrangleDistort.h"
 
 #ifdef __APPLE__
 #ifndef GL_SILENCE_DEPRECATION
@@ -10,6 +11,8 @@
 #else
 #include <GL/gl.h>
 #endif
+
+using namespace QuadrangleDistort;
 
 
 CornerPinPluginInteract::CornerPinPluginInteract(OfxInteractHandle handle, ImageEffect* effect)
@@ -25,15 +28,66 @@ bool CornerPinPluginInteract::draw(const DrawArgs &args) {
 
     OfxPointD p;
     glBegin(GL_LINE_LOOP);
-    p = _effect->fetchDouble2DParam(kParamBottomLeft)->getValueAtTime(args.time);
-    glVertex2d(p.x, p.y);
-    p = _effect->fetchDouble2DParam(kParamBottomRight)->getValueAtTime(args.time);
-    glVertex2d(p.x, p.y);
-    p = _effect->fetchDouble2DParam(kParamTopRight)->getValueAtTime(args.time);
-    glVertex2d(p.x, p.y);
-    p = _effect->fetchDouble2DParam(kParamTopLeft)->getValueAtTime(args.time);
-    glVertex2d(p.x, p.y);
+    auto bottomLeft = _effect->fetchDouble2DParam(kParamBottomLeft)->getValueAtTime(args.time);
+    glVertex2d(bottomLeft.x, bottomLeft.y);
+    auto bottomRight = _effect->fetchDouble2DParam(kParamBottomRight)->getValueAtTime(args.time);
+    glVertex2d(bottomRight.x, bottomRight.y);
+    auto topRight = _effect->fetchDouble2DParam(kParamTopRight)->getValueAtTime(args.time);
+    glVertex2d(topRight.x, topRight.y);
+    auto topLeft = _effect->fetchDouble2DParam(kParamTopLeft)->getValueAtTime(args.time);
+    glVertex2d(topLeft.x, topLeft.y);
     glEnd();
+
+    Quadrangle quad;
+    quad.edges[0].p = bottomLeft;
+    quad.edges[1].p = bottomRight;
+    quad.edges[2].p = topRight;
+    quad.edges[3].p = topLeft;
+    quad.initialise();
+
+    auto srcClip = _effect->fetchClip(kSourceClip);
+    auto srcROD = srcClip->getRegionOfDefinition(args.time);
+
+    Quadrangle window;
+    window.edges[0].p.x = srcROD.x1;
+    window.edges[0].p.y = srcROD.y1;
+    window.edges[1].p.x = srcROD.x2;
+    window.edges[1].p.y = srcROD.y1;
+    window.edges[2].p.x = srcROD.x2;
+    window.edges[2].p.y = srcROD.y2;
+    window.edges[3].p.x = srcROD.x1;
+    window.edges[3].p.y = srcROD.y2;
+    window.initialise();
+
+    glColor3f(0.5, 0.5, 1);
+    glLineStipple(1, 0xAAAA);
+    glEnable(GL_LINE_STIPPLE);
+    for (int i=0; i < 4; i++) {
+        if (!quad.edges[i].isInitialised) {
+            continue;
+        }
+        OfxPointD ends[2];
+        int count = 0;
+        for (int j=0; j < 4; j++) {
+            auto crosses = window.edges[j].crosses(&quad.edges[i]);
+            if (crosses < 0 || crosses > 1) {
+                continue;
+            }
+            ends[count].x = window.edges[j].p.x + window.edges[j].vect.x * crosses;
+            ends[count].y = window.edges[j].p.y + window.edges[j].vect.y * crosses;
+            count++;
+            if (count == 2) {
+                break;
+            }
+        }
+        if (count == 2) {
+            glBegin(GL_LINES);
+            glVertex2d(ends[0].x, ends[0].y);
+            glVertex2d(ends[1].x, ends[1].y);
+            glEnd();
+        }
+    }
+    glDisable(GL_LINE_STIPPLE);
 
     auto intersections = ((CornerPinPlugin*)_effect)->getIntersections();
 
@@ -59,8 +113,8 @@ inline bool _inVicinity(const OfxPointD* p, const OfxPointD* h, const OfxPointD*
 
 bool CornerPinPluginInteract::penDown(const PenArgs &args) {
     OfxPointD radius;
-    radius.x = 10 * args.pixelScale.x;
-    radius.y = 10 * args.pixelScale.y;
+    radius.x =  10 / args.renderScale.x;
+    radius.y = 10 / args.renderScale.y;
     auto bottomLeft = _effect->fetchDouble2DParam(kParamBottomLeft)->getValueAtTime(args.time);
     if (_inVicinity(&args.penPosition, &bottomLeft, &radius)) {
         movingHandle = 1;

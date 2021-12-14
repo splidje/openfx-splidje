@@ -23,12 +23,19 @@ public:
     OffsetMapPlugin(OfxImageEffectHandle handle);
 
 private:
-    /* Override the render */
-    virtual void render(const RenderArguments &args) OVERRIDE FINAL;
-    
     virtual void getClipPreferences(ClipPreferencesSetter &clipPreferences) OVERRIDE FINAL;
 
+    virtual bool isIdentity(const IsIdentityArguments &args, Clip * &identityClip, double &identityTime
+#ifdef OFX_EXTENSIONS_NUKE
+    , int& view
+    , std::string& plane
+#endif
+    ) OVERRIDE FINAL;
+
     virtual void getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois) OVERRIDE FINAL;
+
+    /* Override the render */
+    virtual void render(const RenderArguments &args) OVERRIDE FINAL;
 
 private:
     Clip* _srcClip;

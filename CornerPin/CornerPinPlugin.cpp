@@ -68,8 +68,10 @@ void CornerPinPlugin::render(const RenderArguments &args)
 {
     auto_ptr<Image> srcImg(_srcClip->fetchImage(args.time));
     auto srcComponentCount = srcImg->getPixelComponentCount();
+    if (abort()) {return;}
     auto_ptr<Image> dstImg(_dstClip->fetchImage(args.time));
     auto dstComponentCount = dstImg->getPixelComponentCount();
+    if (abort()) {return;}
 
     auto srcROD = srcImg->getRegionOfDefinition();
     auto width = srcROD.x2 - srcROD.x1;
@@ -84,6 +86,7 @@ void CornerPinPlugin::render(const RenderArguments &args)
     quad.initialise();
     if (quad.zeroEdgeCount > 1) {
         for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
+            if (abort()) {return;}
             auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, y);
             for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
                 for (int c=0; c < dstComponentCount; c++, dstPix++) {
@@ -106,6 +109,7 @@ void CornerPinPlugin::render(const RenderArguments &args)
         auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, p.y);
         if (!dstPix) {continue;}
         for (p.x=args.renderWindow.x1; p.x < args.renderWindow.x2; p.x++) {
+            if (abort()) {return;}
             auto qPoint = QuadranglePixel(&quad, p);
             // 1917 579
             if (qPoint.intersection > 0) {

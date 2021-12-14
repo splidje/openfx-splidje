@@ -130,6 +130,24 @@ void Quadrangle::initialise() {
     }
 }
 
+bool Quadrangle::isValid() {
+    if (zeroEdgeCount > 1) {
+        return false;
+    }
+    for (auto i=0; i < 4; i++) {
+        for (auto j=0; j < 2; j++) {
+            auto oppIndex = (i + 2 + j) % 4;
+            if (!edges[oppIndex].isInitialised) {
+                continue;
+            }
+            if (calcInsideNess(edges[i].p, &edges[oppIndex]) < 0) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 void Quadrangle::bounds(OfxRectI *rect) {
     rect->x2 = rect->x1 = edges[0].p.x;
     rect->y2 = rect->y1 = edges[0].p.y;

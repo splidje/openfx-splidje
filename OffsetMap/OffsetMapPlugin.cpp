@@ -25,6 +25,20 @@ void OffsetMapPlugin::getClipPreferences(ClipPreferencesSetter &clipPreferences)
     clipPreferences.setClipComponents(*_dstClip, _srcClip->getPixelComponents());
 }
 
+bool OffsetMapPlugin::isIdentity(const IsIdentityArguments &args, Clip * &identityClip, double &identityTime
+#ifdef OFX_EXTENSIONS_NUKE
+    , int& view
+    , std::string& plane
+#endif
+) {
+    if (!_offClip->isConnected()) {
+        identityClip = _srcClip;
+        identityTime = args.time;
+        return true;
+    }
+    return false;
+}
+
 inline void toCanonicalFixed(
     const OfxPointI & p_pixel,
     const OfxPointD & renderScale,
@@ -42,6 +56,10 @@ void OffsetMapPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &arg
     offROI.y2 += 1;
     rois.setRegionOfInterest(*_offClip, offROI);
     auto_ptr<Image> offImg(_offClip->fetchImage(args.time, offROI));
+    if (!offImg.get()) {
+        return;
+    }
+    if (abort()) {return;}
     auto offImgBounds = offImg->getRegionOfDefinition();
     if (rectIsEmpty(offImgBounds)) {
         return;
@@ -59,6 +77,7 @@ void OffsetMapPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &arg
     OfxPointI curP;
     for (curP.y=renderWindow.y1; curP.y < renderWindow.y2; curP.y++) {
         for (curP.x=renderWindow.x1; curP.x < renderWindow.x2; curP.x++) {
+            if (abort()) {return;}
             OfxPointD srcP;
             toCanonicalFixed(curP, args.renderScale, offPar, &srcP);
             auto pix = (float*)offImg->getPixelAddressNearest(curP.x, curP.y);
@@ -98,41 +117,80 @@ inline void readQuad(Image* img, int x, int y, int comps, OfxPointD renderScale,
 void OffsetMapPlugin::render(const RenderArguments &args)
 {
     auto_ptr<Image> srcImg(_srcClip->fetchImage(args.time));
+    if (!srcImg.get()) {
+        return;
+    }
+    if (abort()) {return;}
     auto srcComps = srcImg->getPixelComponentCount();
     auto srcImgBounds = srcImg->getRegionOfDefinition();
+    auto srcWidth = srcImgBounds.x2 - srcImgBounds.x1;
+    auto srcHeight = srcImgBounds.y2 - srcImgBounds.y1;
     auto_ptr<Image> dstImg(_dstClip->fetchImage(args.time));
+    assert(dstImg.get());
+    if (abort()) {return;}
     auto dstComps = dstImg->getPixelComponentCount();
-    // OfxRectD srcRegion = _srcClip->getRegionOfDefinition(args.time);
-    // OfxRectD offRegion;
-    // toCanonical(args.renderWindow, args.renderScale, _offClip->getPixelAspectRatio(), &offRegion);
-    // offRegion.x2 += 1;
-    // offRegion.y2 += 1;
     auto_ptr<Image> offImg(_offClip->fetchImage(args.time));
+    if (!offImg.get()) {
+        return;
+    }
+    if (abort()) {return;}
     auto offComps = offImg->getPixelComponentCount();
     auto offPar = offImg->getPixelAspectRatio();
+    auto_ptr<double> sumValues(new double[srcComps]);
+    double sumWeights;
+    auto_ptr<float> srcPix(new float[srcComps]);
     for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
         for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
             auto dstPix = (float*)dstImg->getPixelAddressNearest(x, y);
             Quadrangle quad;
             readQuad(offImg.get(), x, y, offComps, args.renderScale, offPar, &quad);
-            OfxRectI bounds;
-            quad.bounds(&bounds);
-            if (quad.zeroEdgeCount <= 1)
+            if (abort()) {return;}
+            sumWeights = 0;
+            if (quad.isValid())
             {
-                for (auto srcY=bounds.y1; srcY < bounds.y2; srcY++) {
-                    for (auto srcX=bounds.x1; srcX < bounds.x2; srcX++) {
-                        // quad.
+                OfxRectI bounds;
+                quad.bounds(&bounds);
+                for (auto c=0; c < srcComps; c++) {
+                    sumValues.get()[c] = 0;
+                }
+                OfxPointD srcP;
+                for (srcP.y=bounds.y1; srcP.y <= bounds.y2; srcP.y++) {
+                    for (srcP.x=bounds.x1; srcP.x <= bounds.x2; srcP.x++) {
+                        if (abort()) {return;}
+                        auto quadPix = QuadranglePixel(&quad, srcP);
+                        if (!quadPix.intersection) {
+                            continue;
+                        }
+                        sumWeights += quadPix.intersection;
+                        OfxPointD idP;
+                        quadPix.calculateIdentityPoint(&idP);
+                        bilinear(
+                            srcImgBounds.x1 + srcWidth * idP.x,
+                            srcImgBounds.y1 + srcHeight * idP.y,
+                            srcImg.get(),
+                            srcPix.get(),
+                            srcComps
+                        );
+                        for (auto c=0; c < srcComps; c++) {
+                            sumValues.get()[c] += quadPix.intersection * srcPix.get()[c];
+                        }
                     }
                 }
             }
-            else {
-                auto srcPix = (float*)srcImg->getPixelAddressNearest(round(quad.edges[0].p.x), round(quad.edges[0].p.y));
-                for (auto c=0; c < dstComps; c++) {
-                    if (c < srcComps) {
-                        dstPix[c] = srcPix[0];
-                    } else {
-                        dstPix[c] = 0;
-                    }
+            if (sumWeights > QUADRANGLEDISTORT_DELTA) {
+                for (auto c=0; c < srcComps; c++) {
+                    dstPix[c] = sumValues.get()[c] / sumWeights;
+                }
+            } else {
+                bilinear(
+                    quad.edges[0].p.x,
+                    quad.edges[0].p.y,
+                    srcImg.get(),
+                    srcPix.get(),
+                    srcComps
+                );
+                for (auto c=0; c < srcComps; c++) {
+                    dstPix[c] = srcPix.get()[c];
                 }
             }
         }
