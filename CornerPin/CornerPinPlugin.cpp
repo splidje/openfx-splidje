@@ -104,20 +104,21 @@ void CornerPinPlugin::render(const RenderArguments &args)
     std::vector<std::vector<OfxPointD>> intersections;
     std::vector<OfxPointD> polyPoints;
     OfxPointD canonPolyPoint;
+    Polygon intersectionPoly;
 
     for (p.y=args.renderWindow.y1; p.y < args.renderWindow.y2; p.y++) {
         auto dstPix = (float*)dstImg->getPixelAddress(args.renderWindow.x1, p.y);
         if (!dstPix) {continue;}
         for (p.x=args.renderWindow.x1; p.x < args.renderWindow.x2; p.x++) {
             if (abort()) {return;}
-            auto qPoint = QuadranglePixel(&quad, p);
-            // 1917 579
-            if (qPoint.intersection > 0) {
-                if (qPoint.intersection < 1) {
+            quad.setCurrentPixel(p);
+            auto intersection = quad.calculatePixelIntersection(&intersectionPoly);
+            if (intersection > 0) {
+                if (intersection < 1) {
                     polyPoints.clear();
                     for (
-                        auto iter = qPoint.intersectionPoly.edges.begin();
-                        iter < qPoint.intersectionPoly.edges.end();
+                        auto iter = intersectionPoly.edges.begin();
+                        iter < intersectionPoly.edges.end();
                         iter++
                     ) {
                         toCanonical(iter->p, args.renderScale, par, &canonPolyPoint);
@@ -125,7 +126,7 @@ void CornerPinPlugin::render(const RenderArguments &args)
                     }
                     intersections.push_back(polyPoints);
                 }
-                qPoint.calculateIdentityPoint(&srcPD);
+                quad.calculatePixelIdentity(&srcPD);
                 srcPI.x = round(srcPD.x * (width - 1) + srcROD.x1);
                 srcPI.y = round(srcPD.y * (height - 1) + srcROD.y1);
                 bilinear(
@@ -137,7 +138,7 @@ void CornerPinPlugin::render(const RenderArguments &args)
                 );
                 for (int c=0; c < dstComponentCount; c++, dstPix++) {
                     if (c == 3) {
-                        *dstPix = qPoint.intersection;
+                        *dstPix = intersection;
                     }
                     else if (c < srcComponentCount) {
                         *dstPix = bilinSrcPix.get()[c];

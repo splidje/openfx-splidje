@@ -157,13 +157,14 @@ void OffsetMapPlugin::render(const RenderArguments &args)
                 for (srcP.y=bounds.y1; srcP.y <= bounds.y2; srcP.y++) {
                     for (srcP.x=bounds.x1; srcP.x <= bounds.x2; srcP.x++) {
                         if (abort()) {return;}
-                        auto quadPix = QuadranglePixel(&quad, srcP);
-                        if (!quadPix.intersection) {
+                        quad.setCurrentPixel(srcP);
+                        auto intersection = quad.calculatePixelIntersection(NULL);
+                        if (!intersection) {
                             continue;
                         }
-                        sumWeights += quadPix.intersection;
+                        sumWeights += intersection;
                         OfxPointD idP;
-                        quadPix.calculateIdentityPoint(&idP);
+                        quad.calculatePixelIdentity(&idP);
                         bilinear(
                             srcImgBounds.x1 + srcWidth * idP.x,
                             srcImgBounds.y1 + srcHeight * idP.y,
@@ -172,7 +173,7 @@ void OffsetMapPlugin::render(const RenderArguments &args)
                             srcComps
                         );
                         for (auto c=0; c < srcComps; c++) {
-                            sumValues.get()[c] += quadPix.intersection * srcPix.get()[c];
+                            sumValues.get()[c] += intersection * srcPix.get()[c];
                         }
                     }
                 }
