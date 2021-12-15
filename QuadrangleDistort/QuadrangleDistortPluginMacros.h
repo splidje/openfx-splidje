@@ -1,9 +1,9 @@
-#define kPluginName "AJPTCornerPin"
+#define kPluginName "QuadrangleDistort"
 #define kPluginGrouping "Transform"
 #define kPluginDescription \
-"AJPT CornerPin"
+"Quadrangle Distort"
 
-#define kPluginIdentifier "com.ajptechnical.openfx.AJPTCornerPin"
+#define kPluginIdentifier "com.ajptechnical.openfx.QuadrangleDistort"
 #define kPluginVersionMajor 0
 #define kPluginVersionMinor 1
 

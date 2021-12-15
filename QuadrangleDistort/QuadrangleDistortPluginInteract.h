@@ -3,11 +3,11 @@
 using namespace OFX;
 
 
-class CornerPinPluginInteract
+class QuadrangleDistortPluginInteract
     : public OverlayInteract
 {
 public:
-    CornerPinPluginInteract(OfxInteractHandle handle, ImageEffect* effect);
+    QuadrangleDistortPluginInteract(OfxInteractHandle handle, ImageEffect* effect);
 
     virtual bool draw(const DrawArgs &args);
 
@@ -21,6 +21,6 @@ private:
 };
 
 class CornerPinPluginOverlayDescriptor
-    : public DefaultEffectOverlayDescriptor<CornerPinPluginOverlayDescriptor, CornerPinPluginInteract>
+    : public DefaultEffectOverlayDescriptor<CornerPinPluginOverlayDescriptor, QuadrangleDistortPluginInteract>
 {
 };

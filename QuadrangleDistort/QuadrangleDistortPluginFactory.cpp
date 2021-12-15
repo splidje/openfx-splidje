@@ -1,9 +1,9 @@
-#include "CornerPinPluginMacros.h"
-#include "CornerPinPluginFactory.h"
-#include "CornerPinPlugin.h"
-#include "CornerPinPluginInteract.h"
+#include "QuadrangleDistortPluginMacros.h"
+#include "QuadrangleDistortPluginFactory.h"
+#include "QuadrangleDistortPlugin.h"
+#include "QuadrangleDistortPluginInteract.h"
 
-void CornerPinPluginFactory::describe(ImageEffectDescriptor &desc)
+void QuadrangleDistortPluginFactory::describe(ImageEffectDescriptor &desc)
 {
     // basic labels
     const ImageEffectHostDescription &gHostDescription = *getImageEffectHostDescription();
@@ -31,7 +31,7 @@ void CornerPinPluginFactory::describe(ImageEffectDescriptor &desc)
     desc.setOverlayInteractDescriptor(new CornerPinPluginOverlayDescriptor);
 }
 
-void CornerPinPluginFactory::describeInContext(ImageEffectDescriptor &desc, ContextEnum context)
+void QuadrangleDistortPluginFactory::describeInContext(ImageEffectDescriptor &desc, ContextEnum context)
 {
     // create the mandated source clip
     ClipDescriptor *srcClip = desc.defineClip(kSourceClip);
@@ -83,10 +83,10 @@ void CornerPinPluginFactory::describeInContext(ImageEffectDescriptor &desc, Cont
     }
 }
 
-ImageEffect* CornerPinPluginFactory::createInstance(OfxImageEffectHandle handle, ContextEnum /*context*/)
+ImageEffect* QuadrangleDistortPluginFactory::createInstance(OfxImageEffectHandle handle, ContextEnum /*context*/)
 {
-    return new CornerPinPlugin(handle);
+    return new QuadrangleDistortPlugin(handle);
 }
 
-static CornerPinPluginFactory p(kPluginIdentifier, kPluginVersionMajor, kPluginVersionMinor);
+static QuadrangleDistortPluginFactory p(kPluginIdentifier, kPluginVersionMajor, kPluginVersionMinor);
 mRegisterPluginFactoryInstance(p)

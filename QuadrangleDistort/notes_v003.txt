@@ -1,0 +1,23 @@
+p - p0 = v * (u * (e1 + e3) - e3) + u * e0
+
+q = p - p0
+
+q = u * e0 + v * (u * (e1 + e3) - e3)
+
+qx = v * (u * (e1x + e3x) - e3x) + u * e0x
+qy = v * (u * (e1y + e3y) - e3y) + u * e0y
+
+qx = v * u * (e1x + e3x) - v * u * e3x + u * e0x
+qx = u * (v * (e1x + e3x) - v * e3x + e0x)
+u = qx / (v * (e1x + e3x) - v * e3x + e0x)
+u = qx / (v * (e1x + e3x - e3x) + e0x)
+
+qy = v * (u * (e1y + e3y) - e3y) + u * e0y
+qy = u * (v * (e1y + e3y - e3y) + e0y)
+qy = qx * (v * (e1y + e3y - e3y) + e0y) / (v * (e1x + e3x - e3x) + e0x)
+
+v = (e0y * qx - e0x * qy) / (e1x * qy - e1y * qx)
+
+u = qx / (v * (e1x + e0x))
+
+u = qy / (v * (e1y + e0y))

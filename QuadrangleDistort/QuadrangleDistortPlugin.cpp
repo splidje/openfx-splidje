@@ -1,13 +1,13 @@
-#include "CornerPinPluginMacros.h"
-#include "CornerPinPlugin.h"
+#include "QuadrangleDistortPluginMacros.h"
+#include "QuadrangleDistortPlugin.h"
 #include "ofxsCoords.h"
-#include "../QuadrangleDistort/QuadrangleDistort.h"
+#include "QuadrangleDistort.h"
 #include <iostream>
 
 using namespace QuadrangleDistort;
 
 
-CornerPinPlugin::CornerPinPlugin(OfxImageEffectHandle handle)
+QuadrangleDistortPlugin::QuadrangleDistortPlugin(OfxImageEffectHandle handle)
     : ImageEffect(handle)
 {
     _srcClip = fetchClip(kSourceClip);
@@ -22,7 +22,7 @@ CornerPinPlugin::CornerPinPlugin(OfxImageEffectHandle handle)
     _topRight = fetchDouble2DParam(kParamTopRight);
 }
 
-bool CornerPinPlugin::isIdentity(const IsIdentityArguments &args, 
+bool QuadrangleDistortPlugin::isIdentity(const IsIdentityArguments &args, 
                                   Clip * &identityClip, double &/*identityTime*/
 #ifdef OFX_EXTENSIONS_NUKE
     , int& view
@@ -33,11 +33,11 @@ bool CornerPinPlugin::isIdentity(const IsIdentityArguments &args,
     return false;
 }
 
-void CornerPinPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois) {
+void QuadrangleDistortPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois) {
     rois.setRegionOfInterest(*_srcClip, _srcClip->getRegionOfDefinition(args.time));
 }
 
-void CornerPinPlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
+void QuadrangleDistortPlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
     if (paramName == kParamFix) {
         Quadrangle quad;
         quad.edges[0].p = _bottomLeft->getValueAtTime(args.time);
@@ -64,7 +64,7 @@ void toCanonical(OfxPointD p, OfxPointD renderScale, double par, OfxPointD* resu
 }
 
 // the overridden render function
-void CornerPinPlugin::render(const RenderArguments &args)
+void QuadrangleDistortPlugin::render(const RenderArguments &args)
 {
     auto_ptr<Image> srcImg(_srcClip->fetchImage(args.time));
     auto srcComponentCount = srcImg->getPixelComponentCount();
@@ -164,14 +164,14 @@ void CornerPinPlugin::render(const RenderArguments &args)
     redrawOverlays();
 }
 
-std::vector<std::vector<OfxPointD>> CornerPinPlugin::getIntersections() {
+std::vector<std::vector<OfxPointD>> QuadrangleDistortPlugin::getIntersections() {
     _intersectionsLock.lock();
     auto result = _intersections;
     _intersectionsLock.unlock();
     return result;
 }
 
-void CornerPinPlugin::setIntersections(std::vector<std::vector<OfxPointD>> intersections) {
+void QuadrangleDistortPlugin::setIntersections(std::vector<std::vector<OfxPointD>> intersections) {
     _intersectionsLock.lock();
     _intersections.assign(intersections.begin(), intersections.end());
     _intersectionsLock.unlock();

@@ -273,7 +273,7 @@ double Quadrangle::calculatePixelIntersection(Polygon* poly) {
     Polygon *inPoly = polies;
     Polygon *outPoly = polies + 1;
     for (int i=0; i < 4; i++) {
-        if (edges[i].isInitialised) {
+        if (!edges[i].isInitialised) {
             continue;
         }
         outPoly->clear();
@@ -281,9 +281,9 @@ double Quadrangle::calculatePixelIntersection(Polygon* poly) {
         std::swap(inPoly, outPoly);
     }
     if (poly) {
-        *poly = *outPoly;
+        *poly = *inPoly;
     }
-    return outPoly->area();
+    return inPoly->area();
 }
 
 void Quadrangle::calculatePixelIdentity(OfxPointD* idP) {

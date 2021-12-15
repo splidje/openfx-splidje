@@ -1,7 +1,7 @@
-#include "CornerPinPluginInteract.h"
-#include "CornerPinPluginMacros.h"
-#include "CornerPinPlugin.h"
-#include "../QuadrangleDistort/QuadrangleDistort.h"
+#include "QuadrangleDistortPluginInteract.h"
+#include "QuadrangleDistortPluginMacros.h"
+#include "QuadrangleDistortPlugin.h"
+#include "QuadrangleDistort.h"
 
 #ifdef __APPLE__
 #ifndef GL_SILENCE_DEPRECATION
@@ -15,7 +15,7 @@
 using namespace QuadrangleDistort;
 
 
-CornerPinPluginInteract::CornerPinPluginInteract(OfxInteractHandle handle, ImageEffect* effect)
+QuadrangleDistortPluginInteract::QuadrangleDistortPluginInteract(OfxInteractHandle handle, ImageEffect* effect)
     : OverlayInteract(handle) {
         addParamToSlaveTo(effect->fetchDouble2DParam(kParamBottomLeft));
         addParamToSlaveTo(effect->fetchDouble2DParam(kParamBottomRight));
@@ -23,7 +23,7 @@ CornerPinPluginInteract::CornerPinPluginInteract(OfxInteractHandle handle, Image
         addParamToSlaveTo(effect->fetchDouble2DParam(kParamTopLeft));
 }
 
-bool CornerPinPluginInteract::draw(const DrawArgs &args) {
+bool QuadrangleDistortPluginInteract::draw(const DrawArgs &args) {
     glColor3f(1, 1, 1);
 
     OfxPointD p;
@@ -89,7 +89,7 @@ bool CornerPinPluginInteract::draw(const DrawArgs &args) {
     }
     glDisable(GL_LINE_STIPPLE);
 
-    auto intersections = ((CornerPinPlugin*)_effect)->getIntersections();
+    auto intersections = ((QuadrangleDistortPlugin*)_effect)->getIntersections();
 
     glColor3f(1, 0.5, 0.5);
 
@@ -111,7 +111,7 @@ inline bool _inVicinity(const OfxPointD* p, const OfxPointD* h, const OfxPointD*
     );
 }
 
-bool CornerPinPluginInteract::penDown(const PenArgs &args) {
+bool QuadrangleDistortPluginInteract::penDown(const PenArgs &args) {
     OfxPointD radius;
     radius.x =  10 / args.renderScale.x;
     radius.y = 10 / args.renderScale.y;
@@ -139,7 +139,7 @@ bool CornerPinPluginInteract::penDown(const PenArgs &args) {
     return false;
 }
 
-bool CornerPinPluginInteract::penUp(const PenArgs &args) {
+bool QuadrangleDistortPluginInteract::penUp(const PenArgs &args) {
     if (movingHandle) {
         movingHandle = 0;
         return true;
@@ -147,7 +147,7 @@ bool CornerPinPluginInteract::penUp(const PenArgs &args) {
     return false;
 }
 
-bool CornerPinPluginInteract::penMotion(const PenArgs &args) {
+bool QuadrangleDistortPluginInteract::penMotion(const PenArgs &args) {
     const char* paramName;
     switch (movingHandle) {
         case 1: paramName = kParamBottomLeft; break;

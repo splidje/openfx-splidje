@@ -1,0 +1,50 @@
+q = u * e - v * (u * g + h + u * e)
+Q = u * E - v * (u * G + H + u * E)
+solve for u,v
+
+e = 1
+E = 0
+f = 0
+F = 1
+g = -1
+G = 0
+h = 0
+H = -1
+
+q = u * 1 - v * (u * -1 + 0 + u * 1)
+q = u - v * (-u + u)
+q = u
+
+Q = u * 0 - v * (u * 0 + -1 + u * 0)
+Q = - v * (-1)
+Q = v
+
+
+
+e = 0
+E = -1
+f = 1
+F = 0
+g = 0
+G = 1
+h = -1
+H = 0
+
+q = u * 0 - v * (u * 0 + -1 + u * 0)
+q = v
+
+Q = u * -1 - v * (u * 1 + 0 + u * -1)
+Q = -u
+
+
+----
+
+q = u * e - v * (u * g + h + u * e)
+v * (u * g + h + u * e) = u * e - q
+v = (u * e - q) / (u * (g + e) + h)
+
+
+Q = u * E - (u * G + H + u * E) * (u * e - q) / (u * (g + e) + h)
+
+https://www.wolframalpha.com/input/?i=Q+%3D+u+*+E+-+%28u+*+G+%2B+H+%2B+u+*+E%29+*+%28u+*+e+-+q%29+%2F+%28u+*+%28g+%2B+e%29+%2B+h%29%2C+in+terms+of+u
+

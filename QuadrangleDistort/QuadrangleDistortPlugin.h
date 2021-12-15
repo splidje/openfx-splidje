@@ -6,10 +6,10 @@
 using namespace OFX;
 
 
-class CornerPinPlugin : public ImageEffect
+class QuadrangleDistortPlugin : public ImageEffect
 {
 public:
-    CornerPinPlugin(OfxImageEffectHandle handle);
+    QuadrangleDistortPlugin(OfxImageEffectHandle handle);
 
     std::vector<std::vector<OfxPointD>> getIntersections();
 
