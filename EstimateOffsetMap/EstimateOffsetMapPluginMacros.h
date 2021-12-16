@@ -10,12 +10,4 @@
 #define kSourceClip "Source"
 #define kTargetClip "Target"
 
-#define kParamBottomLeft "bottomLeft"
-
-#define kParamBottomRight "bottomRight"
-
-#define kParamTopRight "topRight"
-
-#define kParamTopLeft "topLeft"
-
-#define kParamFix "fix"
+#define kParamIterations "iterations"

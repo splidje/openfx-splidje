@@ -142,13 +142,6 @@ void QuadrangleDistortPlugin::render(const RenderArguments &args)
                     }
                     else if (c < srcComponentCount) {
                         *dstPix = bilinSrcPix.get()[c];
-                        // if (c == 0) {
-                        //     *dstPix = srcPD.x;
-                        // } else if (c == 1) {
-                        //     *dstPix = srcPD.y;
-                        // } else {
-                        //     *dstPix = 0;
-                        // }
                     } else {
                         *dstPix = 0;
                     }                    

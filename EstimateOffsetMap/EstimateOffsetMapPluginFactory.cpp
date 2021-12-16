@@ -1,6 +1,5 @@
 #include "EstimateOffsetMapPluginFactory.h"
 #include "EstimateOffsetMapPlugin.h"
-#include "EstimateOffsetMapPluginInteract.h"
 
 void EstimateOffsetMapPluginFactory::describe(ImageEffectDescriptor &desc)
 {
@@ -25,8 +24,6 @@ void EstimateOffsetMapPluginFactory::describe(ImageEffectDescriptor &desc)
     desc.setSupportsMultipleClipPARs(true);
     desc.setSupportsMultipleClipDepths(false);
     desc.setRenderThreadSafety(eRenderUnsafe);
-
-    desc.setOverlayInteractDescriptor(new EstimateOffsetMapPluginOverlayDescriptor);
 }
 
 void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, ContextEnum context)
@@ -52,9 +49,7 @@ void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &de
 
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
-    dstClip->addSupportedComponent(ePixelComponentRGBA);
-    // dstClip->addSupportedComponent(ePixelComponentRGB);
-    dstClip->addSupportedComponent(ePixelComponentAlpha);
+    dstClip->addSupportedComponent(ePixelComponentRGB);
     dstClip->setTemporalClipAccess(false);
     dstClip->setSupportsTiles(true);
 
@@ -62,31 +57,7 @@ void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &de
     {
         auto page = desc.definePageParam("Controls");
         {
-            auto param = desc.defineDouble2DParam(kParamBottomLeft);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineDouble2DParam(kParamBottomRight);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineDouble2DParam(kParamTopRight);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineDouble2DParam(kParamTopLeft);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.definePushButtonParam(kParamFix);
+            auto param = desc.defineIntParam(kParamIterations);
             if (page) {
                 page->addChild(*param);
             }

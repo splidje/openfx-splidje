@@ -21,7 +21,18 @@ OffsetMapPlugin::OffsetMapPlugin(OfxImageEffectHandle handle)
     	    _dstClip->getPixelComponents() == ePixelComponentRGBA));
 }
 
+bool OffsetMapPlugin::getRegionOfDefinition(const RegionOfDefinitionArguments &args, OfxRectD &rod) {
+    rod = _offClip->getRegionOfDefinition(args.time);
+    return true;
+}
+
 void OffsetMapPlugin::getClipPreferences(ClipPreferencesSetter &clipPreferences) {
+#ifdef OFX_EXTENSIONS_NATRON
+    OfxRectI format;
+    _offClip->getFormat(format);
+    clipPreferences.setOutputFormat(format);
+#endif
+    clipPreferences.setPixelAspectRatio(*_dstClip, _offClip->getPixelAspectRatio());
     clipPreferences.setClipComponents(*_dstClip, _srcClip->getPixelComponents());
 }
 
@@ -68,7 +79,7 @@ void OffsetMapPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &arg
     auto offPar = _offClip->getPixelAspectRatio();
     OfxRectI renderWindow;
     toPixelEnclosing(offROI, args.renderScale, offPar, &renderWindow);
-    OfxRectD srcROD = _srcClip->getRegionOfDefinition(args.time);
+    auto srcROD = _srcClip->getRegionOfDefinition(args.time);
     OfxRectD srcROI;
     srcROI.x1 = srcROD.x2;
     srcROI.x2 = srcROD.x1;
@@ -94,19 +105,19 @@ void OffsetMapPlugin::getRegionsOfInterest(const RegionsOfInterestArguments &arg
     rois.setRegionOfInterest(*_srcClip, srcROI);
 }
 
-inline void readQuad(Image* img, int x, int y, int comps, OfxPointD renderScale, double par, Quadrangle* quad) {
+inline void readQuad(Image* img, int x, int y, int comps, OfxPointD renderScale, double offPar, double srcPar, Quadrangle* quad) {
     for (auto r=0; r < 2; r++) {
         for (auto c=0; c < 2; c++) {
             auto pix = (float*)img->getPixelAddressNearest(x + c, y + r);
             OfxPointD offset;
-            offset.x = pix[0] * renderScale.x / par;
+            offset.x = pix[0] * renderScale.x / srcPar;
             if (comps > 1) {
                 offset.y = pix[1] * renderScale.y;
             } else {
                 offset.y = 0;
             }
             auto idx = r * 2 + (r ? (1-c) : c);
-            quad->edges[idx].p.x = x + offset.x;
+            quad->edges[idx].p.x = x * offPar / srcPar + offset.x;
             quad->edges[idx].p.y = y + offset.y;
         }
     }
@@ -122,6 +133,7 @@ void OffsetMapPlugin::render(const RenderArguments &args)
     }
     if (abort()) {return;}
     auto srcComps = srcImg->getPixelComponentCount();
+    auto srcPar = srcImg->getPixelAspectRatio();
     auto srcImgBounds = srcImg->getRegionOfDefinition();
     auto srcWidth = srcImgBounds.x2 - srcImgBounds.x1;
     auto srcHeight = srcImgBounds.y2 - srcImgBounds.y1;
@@ -143,7 +155,7 @@ void OffsetMapPlugin::render(const RenderArguments &args)
         for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
             auto dstPix = (float*)dstImg->getPixelAddressNearest(x, y);
             Quadrangle quad;
-            readQuad(offImg.get(), x, y, offComps, args.renderScale, offPar, &quad);
+            readQuad(offImg.get(), x, y, offComps, args.renderScale, offPar, srcPar, &quad);
             if (abort()) {return;}
             sumWeights = 0;
             if (quad.isValid())

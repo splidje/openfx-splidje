@@ -23,6 +23,8 @@ public:
     OffsetMapPlugin(OfxImageEffectHandle handle);
 
 private:
+    virtual bool getRegionOfDefinition(const RegionOfDefinitionArguments &args, OfxRectD &rod) OVERRIDE FINAL;
+
     virtual void getClipPreferences(ClipPreferencesSetter &clipPreferences) OVERRIDE FINAL;
 
     virtual bool isIdentity(const IsIdentityArguments &args, Clip * &identityClip, double &identityTime
