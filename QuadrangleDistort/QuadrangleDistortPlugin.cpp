@@ -45,7 +45,8 @@ void QuadrangleDistortPlugin::changedParam(const InstanceChangedArgs &args, cons
         quad.edges[2].p = _topRight->getValueAtTime(args.time);
         quad.edges[3].p = _topLeft->getValueAtTime(args.time);
         quad.initialise();
-        quad.fix(NULL, NULL);
+        std::set<int> locked = {0};
+        quad.fix(&locked, NULL);
         _bottomLeft->setValueAtTime(args.time, quad.edges[0].p);
         _bottomRight->setValueAtTime(args.time, quad.edges[1].p);
         _topRight->setValueAtTime(args.time, quad.edges[2].p);

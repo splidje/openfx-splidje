@@ -25,4 +25,5 @@ private:
     Clip* _trgClip;
     Clip* _dstClip;
     IntParam* _iterations;
+    IntParam* _seed;
 };

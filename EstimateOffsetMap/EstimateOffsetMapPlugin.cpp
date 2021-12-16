@@ -1,5 +1,6 @@
 #include "EstimateOffsetMapPlugin.h"
 #include "../QuadrangleDistort/QuadrangleDistort.h"
+#include <iostream>
 
 using namespace QuadrangleDistort;
 
@@ -17,6 +18,7 @@ EstimateOffsetMapPlugin::EstimateOffsetMapPlugin(OfxImageEffectHandle handle)
     assert(_dstClip && (_dstClip->getPixelComponents() == ePixelComponentRGB ||
     	    _dstClip->getPixelComponents() == ePixelComponentRGBA));
     _iterations = fetchIntParam(kParamIterations);
+    _seed = fetchIntParam(kParamSeed);
 }
 
 bool EstimateOffsetMapPlugin::getRegionOfDefinition(const RegionOfDefinitionArguments &args, OfxRectD &rod) {
@@ -65,6 +67,7 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
     assert(dstComps >= 2);
 
     auto iterations = _iterations->getValueAtTime(args.time);
+    std::srand(_seed->getValueAtTime(args.time));
 
     auto width = args.renderWindow.x2 - args.renderWindow.x1;
     auto height = args.renderWindow.y2 - args.renderWindow.y1;
@@ -79,7 +82,6 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
                 quadPtr->edges[e].p.x = x + (e == 1 || e == 2);
                 quadPtr->edges[e].p.y = y + (e > 1);
             }
-            quadPtr->initialise();
         }
     }
 
@@ -104,9 +106,11 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
     std::set<Quadrangle*> visited;
     std::set<int> changed;
     for (auto i=0; i < iterations; i++) {
-        pos.x = args.renderWindow.x1 + rand() % width;
-        pos.y = args.renderWindow.y1 + rand() % height;
-        quadPtr = quads.get() + pos.y * width + pos.x;
+        auto randX = std::rand() % width;
+        auto randY = std::rand() % height;
+        pos.x = args.renderWindow.x1 + randX;
+        pos.y = args.renderWindow.y1 + randY;
+        quadPtr = quads.get() + (randY * width + randX);
         quadPtr->edges[0].p.x = srcROD.x1 + (rand() % srcWidth);
         quadPtr->edges[0].p.y = srcROD.y1 + (rand() % srcHeight);
         quadPtr->initialise();
@@ -115,15 +119,24 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
 
         for (auto d : dirtied) {
             visited.insert(d.quadPtr);
-            changed.clear();
             quadPtr->fix(&d.changed, &changed);
             OfxPointI adjPos;
             std::set<int> locked;
             for (auto yOff=-1; yOff <= 1; yOff += 2) {
+                adjPos.y = pos.y + yOff;
+                if (adjPos.y < args.renderWindow.y1 || adjPos.y >= args.renderWindow.y2) {
+                    continue;
+                }
                 for (auto xOff=-1; xOff <= 1; xOff += 2) {
                     adjPos.x = pos.x + xOff;
-                    adjPos.y = pos.y + yOff;
-                    auto adjQuadPtr = quads.get() + adjPos.y * width + adjPos.x;
+                    if (adjPos.x < args.renderWindow.x1 || adjPos.x >= args.renderWindow.x2) {
+                        continue;
+                    }
+                    auto adjQuadPtr = (
+                        quads.get()
+                        + (adjPos.y - args.renderWindow.y1) * width
+                        + (adjPos.x - args.renderWindow.x1)
+                    );
                     if (visited.find(adjQuadPtr) != visited.end()) {
                         continue;
                     }

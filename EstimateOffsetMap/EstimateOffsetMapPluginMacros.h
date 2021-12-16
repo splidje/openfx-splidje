@@ -11,3 +11,5 @@
 #define kTargetClip "Target"
 
 #define kParamIterations "iterations"
+
+#define kParamSeed "seed"

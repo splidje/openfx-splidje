@@ -118,7 +118,6 @@ double QuadrangleDistort::calcInsideNess(const OfxPointD p, const Edge* cutEdge)
 void Quadrangle::initialise() {
     Edge* edge = edges;
     zeroEdgeCount = 0;
-    _cachedConsts = false;
     for (int i=0; i < 4; i++, edge++) {
         vectorSubtract(
             edges[(i+1) % 4].p,
@@ -161,12 +160,12 @@ void Quadrangle::bounds(OfxRectI *rect) {
 }
 
 void Quadrangle::fix(const std::set<int>* lockedIndices, std::set<int>* changedIndices) {
-    assert(!lockedIndices || lockedIndices->count() <= 2);
+    assert(!lockedIndices || lockedIndices->size() <= 2);
     if (changedIndices) {
         changedIndices->clear();
     }
     for (auto i=0; i < 4; i++) {
-        if (lockedIndices && lockedIndices->find(i) == lockedIndices->end()) {
+        if (lockedIndices && lockedIndices->find(i) != lockedIndices->end()) {
             continue;
         }
         auto edgePtr = &edges[i];

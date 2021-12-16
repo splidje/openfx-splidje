@@ -62,6 +62,12 @@ void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &de
                 page->addChild(*param);
             }
         }
+        {
+            auto param = desc.defineIntParam(kParamSeed);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
     }
 }
 

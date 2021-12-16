@@ -113,8 +113,8 @@ inline bool _inVicinity(const OfxPointD* p, const OfxPointD* h, const OfxPointD*
 
 bool QuadrangleDistortPluginInteract::penDown(const PenArgs &args) {
     OfxPointD radius;
-    radius.x =  10 / args.renderScale.x;
-    radius.y = 10 / args.renderScale.y;
+    radius.x =  10 * args.pixelScale.x;
+    radius.y = 10 * args.pixelScale.y;
     auto bottomLeft = _effect->fetchDouble2DParam(kParamBottomLeft)->getValueAtTime(args.time);
     if (_inVicinity(&args.penPosition, &bottomLeft, &radius)) {
         movingHandle = 1;
