@@ -117,17 +117,26 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
         dirtied.clear();
         dirtied.push_back({pos, quadPtr, {0}});
 
-        for (auto d : dirtied) {
+        for (auto di=0; di < dirtied.size(); di++) {
+            auto d = dirtied[di];
             visited.insert(d.quadPtr);
-            quadPtr->fix(&d.changed, &changed);
+            // for (auto j=0; j < 4; j++) {
+            //     std::cout << d.quadPtr->edges[j].p.x << "," << d.quadPtr->edges[j].p.x << " ";
+            // }
+            // std::cout << std::endl;
+            d.quadPtr->fix(&d.changed, &changed);
+            // for (auto j=0; j < 4; j++) {
+            //     std::cout << d.quadPtr->edges[j].p.x << "," << d.quadPtr->edges[j].p.x << " ";
+            // }
+            // std::cout << std::endl;
             OfxPointI adjPos;
             std::set<int> locked;
-            for (auto yOff=-1; yOff <= 1; yOff += 2) {
+            for (auto yOff=-1; yOff <= 1; yOff += 1) {
                 adjPos.y = pos.y + yOff;
                 if (adjPos.y < args.renderWindow.y1 || adjPos.y >= args.renderWindow.y2) {
                     continue;
                 }
-                for (auto xOff=-1; xOff <= 1; xOff += 2) {
+                for (auto xOff=-1; xOff <= 1; xOff += 1) {
                     adjPos.x = pos.x + xOff;
                     if (adjPos.x < args.renderWindow.x1 || adjPos.x >= args.renderWindow.x2) {
                         continue;
@@ -143,46 +152,58 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
                     locked.clear();
                     if (xOff == -1 && yOff == -1) {
                         if (changed.find(0) != changed.end()) {
+                            adjQuadPtr->edges[2].p = d.quadPtr->edges[0].p;
                             locked.insert(2);
                         }
                     } else if (xOff == 0 && yOff == -1) {
                         if (changed.find(0) != changed.end()) {
+                            adjQuadPtr->edges[3].p = d.quadPtr->edges[0].p;
                             locked.insert(3);
                         }
                         if (changed.find(1) != changed.end()) {
+                            adjQuadPtr->edges[2].p = d.quadPtr->edges[1].p;
                             locked.insert(2);
                         }
                     } else if (xOff == 1 && yOff == -1) {
                         if (changed.find(1) != changed.end()) {
+                            adjQuadPtr->edges[3].p = d.quadPtr->edges[1].p;
                             locked.insert(3);
                         }
                     } else if (xOff == 1 && yOff == 0) {
                         if (changed.find(1) != changed.end()) {
+                            adjQuadPtr->edges[0].p = d.quadPtr->edges[1].p;
                             locked.insert(0);
                         }
                         if (changed.find(2) != changed.end()) {
+                            adjQuadPtr->edges[3].p = d.quadPtr->edges[2].p;
                             locked.insert(3);
                         }
                     } else if (xOff == 1 && yOff == 1) {
                         if (changed.find(2) != changed.end()) {
+                            adjQuadPtr->edges[0].p = d.quadPtr->edges[2].p;
                             locked.insert(0);
                         }
                     } else if (xOff == 0 && yOff == 1) {
                         if (changed.find(2) != changed.end()) {
+                            adjQuadPtr->edges[1].p = d.quadPtr->edges[2].p;
                             locked.insert(1);
                         }
                         if (changed.find(3) != changed.end()) {
+                            adjQuadPtr->edges[0].p = d.quadPtr->edges[3].p;
                             locked.insert(0);
                         }
                     } else if (xOff == -1 && yOff == 1) {
                         if (changed.find(3) != changed.end()) {
+                            adjQuadPtr->edges[1].p = d.quadPtr->edges[3].p;
                             locked.insert(1);
                         }
                     } else if (xOff == -1 && yOff == 0) {
                         if (changed.find(0) != changed.end()) {
+                            adjQuadPtr->edges[1].p = d.quadPtr->edges[0].p;
                             locked.insert(1);
                         }
                         if (changed.find(3) != changed.end()) {
+                            adjQuadPtr->edges[1].p = d.quadPtr->edges[3].p;
                             locked.insert(1);
                         }
                     }
