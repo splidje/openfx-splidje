@@ -43,12 +43,6 @@ void EstimateOffsetMapPlugin::getRegionsOfInterest(const RegionsOfInterestArgume
     rois.setRegionOfInterest(*_srcClip, _srcClip->getRegionOfDefinition(args.time));
 }
 
-typedef struct {
-    OfxPointI pos;
-    Quadrangle* quadPtr;
-    std::set<int> changed;
-} dirtyQuad_t;
-
 void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
 {
     auto_ptr<Image> srcImg(_srcClip->fetchImage(args.time));
@@ -57,9 +51,17 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
         return;
     }
     auto srcROD = srcImg->getRegionOfDefinition();
-    auto srcWidth = srcROD.x2 - srcROD.x1;
-    auto srcHeight = srcROD.y2 - srcROD.y1;
-    auto srcPar = srcImg->getPixelAspectRatio();
+    auto trgROD = trgImg->getRegionOfDefinition();
+
+    OfxRectI relevantArea;
+    relevantArea.x1 = std::min(srcROD.x1, trgROD.x1);
+    relevantArea.y1 = std::min(srcROD.y1, trgROD.y1);
+    relevantArea.x2 = std::max(srcROD.x2, trgROD.x2);
+    relevantArea.y2 = std::max(srcROD.y2, trgROD.y2);
+    auto areaWidth = relevantArea.x2 - relevantArea.x1;
+    auto areaHeight = relevantArea.y2 - relevantArea.y1;
+
+    auto srcPar = srcImg->getPixelAspectRatio();    
     auto comps = std::min(srcImg->getPixelComponentCount(), trgImg->getPixelComponentCount());
     auto_ptr<Image> dstImg(_dstClip->fetchImage(args.time));
     assert(dstImg.get());
@@ -73,161 +75,121 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
     auto height = args.renderWindow.y2 - args.renderWindow.y1;
     auto numPixels = width * height;
 
-    // initialise quads
-    auto_ptr<Quadrangle> quads(new Quadrangle[numPixels]);
-    auto quadPtr = quads.get();
-    for (auto y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
-        for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++, quadPtr++) {
-            for (auto e=0; e < 4; e++) {
-                quadPtr->edges[e].p.x = x + (e == 1 || e == 2);
-                quadPtr->edges[e].p.y = y + (e > 1);
-            }
-        }
-    }
-
-    // initialise differences
+    // initialise offsets & differences
+    auto_ptr<float> offsets(new float[numPixels * 2]);
     auto_ptr<float> diffs(new float[numPixels * comps]);
+    auto_ptr<bool> changed(new bool[numPixels]);
+    auto offsetPtr = offsets.get();
     auto diffPtr = diffs.get();
+    auto changedPtr = changed.get();
     for (auto y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
-        for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
+        for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++, offsetPtr += 2, diffPtr += comps, changedPtr++) {
+            if (abort()) {
+                return;
+            }
             auto srcPix = (float*)srcImg->getPixelAddress(x, y);
             auto trgPix = (float*)trgImg->getPixelAddress(x, y);
-            for (auto c=0; c < comps; c++, diffPtr++) {
-                auto srcVal = srcPix ? srcPix[c] : 0;
-                auto trgVal = trgPix ? trgPix[c] : 0;
-                *diffPtr = std::abs(trgVal - srcVal);
+            auto dstPix = (float*)dstImg->getPixelAddress(x, y);
+            *changedPtr = false;
+            for (auto c=0; c < dstComps; c++) {
+                if (dstPix) {
+                    dstPix[c] = 0;
+                }
+                if (c < comps) {
+                    auto srcVal = srcPix ? srcPix[c] : 0;
+                    auto trgVal = trgPix ? trgPix[c] : 0;
+                    diffPtr[c] = std::abs(trgVal - srcVal);
+                }
+                if (c < 2) {
+                    offsetPtr[c] = 0;
+                }
             }
         }
     }
+
+    auto max_radius = std::max(areaWidth, areaHeight) >> 3;
 
     // iterate
-    OfxPointI pos;
-    std::vector<dirtyQuad_t> dirtied;
-    std::set<Quadrangle*> visited;
-    std::set<int> changed;
+    auto_ptr<float> newDiffs(new float[numPixels * comps]);
     for (auto i=0; i < iterations; i++) {
-        auto randX = std::rand() % width;
-        auto randY = std::rand() % height;
-        pos.x = args.renderWindow.x1 + randX;
-        pos.y = args.renderWindow.y1 + randY;
-        quadPtr = quads.get() + (randY * width + randX);
-        quadPtr->edges[0].p.x = srcROD.x1 + (rand() % srcWidth);
-        quadPtr->edges[0].p.y = srcROD.y1 + (rand() % srcHeight);
-        quadPtr->initialise();
-        dirtied.clear();
-        dirtied.push_back({pos, quadPtr, {0}});
-
-        for (auto di=0; di < dirtied.size(); di++) {
-            auto d = dirtied[di];
-            visited.insert(d.quadPtr);
-            // for (auto j=0; j < 4; j++) {
-            //     std::cout << d.quadPtr->edges[j].p.x << "," << d.quadPtr->edges[j].p.x << " ";
-            // }
-            // std::cout << std::endl;
-            d.quadPtr->fix(&d.changed, &changed);
-            // for (auto j=0; j < 4; j++) {
-            //     std::cout << d.quadPtr->edges[j].p.x << "," << d.quadPtr->edges[j].p.x << " ";
-            // }
-            // std::cout << std::endl;
-            OfxPointI adjPos;
-            std::set<int> locked;
-            for (auto yOff=-1; yOff <= 1; yOff += 1) {
-                adjPos.y = pos.y + yOff;
-                if (adjPos.y < args.renderWindow.y1 || adjPos.y >= args.renderWindow.y2) {
+        if (abort()) {
+            return;
+        }
+        auto centX = relevantArea.x1 + std::rand() % areaWidth;
+        auto centY = relevantArea.y1 + std::rand() % areaHeight;
+        auto radius = std::rand() % (max_radius << 1) - max_radius;
+        auto centralForce = std::rand() % 8 - 4;
+        double radiusSq = radius * radius;
+        offsetPtr = offsets.get();
+        diffPtr = diffs.get();
+        changedPtr = changed.get();
+        auto newDiffPtr = newDiffs.get();
+        double oldScore = 0;
+        double newScore = 0;
+        for (auto y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
+            for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++, offsetPtr += 2, diffPtr += comps, newDiffPtr += comps, changedPtr++) {
+                if (abort()) {
+                    return;
+                }
+                auto dstPix = (float*)dstImg->getPixelAddress(x, y);
+                auto offsetX = dstPix ? dstPix[0] : 0;
+                auto offsetY = dstPix ? dstPix[1] : 0;
+                auto srcX = x + offsetX * args.renderScale.x;
+                auto srcY = y + offsetY * args.renderScale.y;
+                auto distX = srcX - centX;
+                auto distY = srcY - centY;
+                auto distSq = distX*distX + distY*distY;
+                if (distSq <= QUADRANGLEDISTORT_DELTA || distSq > radiusSq) {
                     continue;
                 }
-                for (auto xOff=-1; xOff <= 1; xOff += 1) {
-                    adjPos.x = pos.x + xOff;
-                    if (adjPos.x < args.renderWindow.x1 || adjPos.x >= args.renderWindow.x2) {
-                        continue;
-                    }
-                    auto adjQuadPtr = (
-                        quads.get()
-                        + (adjPos.y - args.renderWindow.y1) * width
-                        + (adjPos.x - args.renderWindow.x1)
-                    );
-                    if (visited.find(adjQuadPtr) != visited.end()) {
-                        continue;
-                    }
-                    locked.clear();
-                    if (xOff == -1 && yOff == -1) {
-                        if (changed.find(0) != changed.end()) {
-                            adjQuadPtr->edges[2].p = d.quadPtr->edges[0].p;
-                            locked.insert(2);
-                        }
-                    } else if (xOff == 0 && yOff == -1) {
-                        if (changed.find(0) != changed.end()) {
-                            adjQuadPtr->edges[3].p = d.quadPtr->edges[0].p;
-                            locked.insert(3);
-                        }
-                        if (changed.find(1) != changed.end()) {
-                            adjQuadPtr->edges[2].p = d.quadPtr->edges[1].p;
-                            locked.insert(2);
-                        }
-                    } else if (xOff == 1 && yOff == -1) {
-                        if (changed.find(1) != changed.end()) {
-                            adjQuadPtr->edges[3].p = d.quadPtr->edges[1].p;
-                            locked.insert(3);
-                        }
-                    } else if (xOff == 1 && yOff == 0) {
-                        if (changed.find(1) != changed.end()) {
-                            adjQuadPtr->edges[0].p = d.quadPtr->edges[1].p;
-                            locked.insert(0);
-                        }
-                        if (changed.find(2) != changed.end()) {
-                            adjQuadPtr->edges[3].p = d.quadPtr->edges[2].p;
-                            locked.insert(3);
-                        }
-                    } else if (xOff == 1 && yOff == 1) {
-                        if (changed.find(2) != changed.end()) {
-                            adjQuadPtr->edges[0].p = d.quadPtr->edges[2].p;
-                            locked.insert(0);
-                        }
-                    } else if (xOff == 0 && yOff == 1) {
-                        if (changed.find(2) != changed.end()) {
-                            adjQuadPtr->edges[1].p = d.quadPtr->edges[2].p;
-                            locked.insert(1);
-                        }
-                        if (changed.find(3) != changed.end()) {
-                            adjQuadPtr->edges[0].p = d.quadPtr->edges[3].p;
-                            locked.insert(0);
-                        }
-                    } else if (xOff == -1 && yOff == 1) {
-                        if (changed.find(3) != changed.end()) {
-                            adjQuadPtr->edges[1].p = d.quadPtr->edges[3].p;
-                            locked.insert(1);
-                        }
-                    } else if (xOff == -1 && yOff == 0) {
-                        if (changed.find(0) != changed.end()) {
-                            adjQuadPtr->edges[1].p = d.quadPtr->edges[0].p;
-                            locked.insert(1);
-                        }
-                        if (changed.find(3) != changed.end()) {
-                            adjQuadPtr->edges[1].p = d.quadPtr->edges[3].p;
-                            locked.insert(1);
-                        }
-                    }
-                    if (locked.size() > 0) {
-                        dirtied.push_back({adjPos, adjQuadPtr, locked});
-                    }
+                auto force = centralForce * (radiusSq - distSq) / radiusSq;
+                auto dist = std::sqrt(distSq);
+                srcX += distX * force / dist;
+                srcY += distY * force / dist;
+                offsetPtr[0] = srcX - x;
+                offsetPtr[1] = srcY - y;
+                auto srcPix = (float*)srcImg->getPixelAddress(srcX, srcY);
+                auto trgPix = (float*)trgImg->getPixelAddress(x, y);
+                for (auto c=0; c < comps; c++) {
+                    auto srcVal = srcPix ? srcPix[c] : 0;
+                    auto trgVal = trgPix ? trgPix[c] : 0;
+                    oldScore += diffPtr[c];
+                    newDiffPtr[c] = std::abs(trgVal - srcVal);
+                    newScore += newDiffPtr[c];
                 }
+                *changedPtr = true;
             }
         }
-    }
 
-    // write quads to pixels
-    quadPtr = quads.get();
-    diffPtr = diffs.get();
-    for (auto y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
-        for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++, quadPtr++, diffPtr += comps) {
-            auto dstPix = (float*)dstImg->getPixelAddress(x, y);
-            if (!dstPix) {
-                continue;
+        if (oldScore == newScore) {
+            // wipe changed
+            changedPtr = changed.get();
+            for (auto y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
+                for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++, changedPtr++) {
+                    *changedPtr = false;
+                }
             }
-            dstPix[0] = srcPar * (quadPtr->edges[0].p.x - x) / args.renderScale.x;
-            dstPix[1] = (quadPtr->edges[0].p.y - y) / args.renderScale.y;
-            for (auto c=2; c < dstComps; c++) {
-                dstPix[c] = 0;
+        } else {
+            // update
+            diffPtr = diffs.get();
+            offsetPtr = offsets.get();
+            newDiffPtr = newDiffs.get();
+            changedPtr = changed.get();
+            for (auto y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
+                for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++, offsetPtr += 2, diffPtr += comps, newDiffPtr += comps, changedPtr++) {
+                    if (!*changedPtr) {
+                        continue;
+                    }
+                    *changedPtr = false; // clean up
+                    auto dstPix = (float*)dstImg->getPixelAddress(x, y);
+                    if (dstPix) {
+                        dstPix[0] = offsetPtr[0] / args.renderScale.x;
+                        dstPix[1] = offsetPtr[1] / args.renderScale.y;
+                    }
+                    for (auto c=0; c < comps; c++) {
+                        diffPtr[c] = newDiffPtr[c];
+                    }
+                }
             }
         }
     }

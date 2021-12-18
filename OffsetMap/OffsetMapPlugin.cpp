@@ -148,64 +148,72 @@ void OffsetMapPlugin::render(const RenderArguments &args)
     if (abort()) {return;}
     auto offComps = offImg->getPixelComponentCount();
     auto offPar = offImg->getPixelAspectRatio();
-    auto_ptr<double> sumValues(new double[srcComps]);
-    double sumWeights;
-    auto_ptr<float> srcPix(new float[srcComps]);
+    // auto_ptr<double> sumValues(new double[srcComps]);
+    // double sumWeights;
+    // auto_ptr<float> srcPix(new float[srcComps]);
     for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
         for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
             auto dstPix = (float*)dstImg->getPixelAddressNearest(x, y);
-            Quadrangle quad;
-            readQuad(offImg.get(), x, y, offComps, args.renderScale, offPar, srcPar, &quad);
-            if (abort()) {return;}
-            sumWeights = 0;
-            if (quad.isValid())
-            {
-                OfxRectI bounds;
-                quad.bounds(&bounds);
-                for (auto c=0; c < srcComps; c++) {
-                    sumValues.get()[c] = 0;
-                }
-                OfxPointD srcP;
-                for (srcP.y=bounds.y1; srcP.y <= bounds.y2; srcP.y++) {
-                    for (srcP.x=bounds.x1; srcP.x <= bounds.x2; srcP.x++) {
-                        if (abort()) {return;}
-                        quad.setCurrentPixel(srcP);
-                        auto intersection = quad.calculatePixelIntersection(NULL);
-                        if (!intersection) {
-                            continue;
-                        }
-                        sumWeights += intersection;
-                        OfxPointD idP;
-                        quad.calculatePixelIdentity(&idP);
-                        bilinear(
-                            srcImgBounds.x1 + srcWidth * idP.x,
-                            srcImgBounds.y1 + srcHeight * idP.y,
-                            srcImg.get(),
-                            srcPix.get(),
-                            srcComps
-                        );
-                        for (auto c=0; c < srcComps; c++) {
-                            sumValues.get()[c] += intersection * srcPix.get()[c];
-                        }
-                    }
-                }
-            }
-            if (sumWeights > QUADRANGLEDISTORT_DELTA) {
-                for (auto c=0; c < srcComps; c++) {
-                    dstPix[c] = sumValues.get()[c] / sumWeights;
-                }
-            } else {
-                bilinear(
-                    quad.edges[0].p.x,
-                    quad.edges[0].p.y,
-                    srcImg.get(),
-                    srcPix.get(),
-                    srcComps
-                );
-                for (auto c=0; c < srcComps; c++) {
-                    dstPix[c] = srcPix.get()[c];
-                }
-            }
+            // Quadrangle quad;
+            // readQuad(offImg.get(), x, y, offComps, args.renderScale, offPar, srcPar, &quad);
+            // if (abort()) {return;}
+            // sumWeights = 0;
+            // if (quad.isValid())
+            // {
+            //     OfxRectI bounds;
+            //     quad.bounds(&bounds);
+            //     for (auto c=0; c < srcComps; c++) {
+            //         sumValues.get()[c] = 0;
+            //     }
+            //     OfxPointD srcP;
+            //     for (srcP.y=bounds.y1; srcP.y <= bounds.y2; srcP.y++) {
+            //         for (srcP.x=bounds.x1; srcP.x <= bounds.x2; srcP.x++) {
+            //             if (abort()) {return;}
+            //             quad.setCurrentPixel(srcP);
+            //             auto intersection = quad.calculatePixelIntersection(NULL);
+            //             if (!intersection) {
+            //                 continue;
+            //             }
+            //             sumWeights += intersection;
+            //             OfxPointD idP;
+            //             quad.calculatePixelIdentity(&idP);
+            //             bilinear(
+            //                 srcImgBounds.x1 + srcWidth * idP.x,
+            //                 srcImgBounds.y1 + srcHeight * idP.y,
+            //                 srcImg.get(),
+            //                 srcPix.get(),
+            //                 srcComps
+            //             );
+            //             for (auto c=0; c < srcComps; c++) {
+            //                 sumValues.get()[c] += intersection * srcPix.get()[c];
+            //             }
+            //         }
+            //     }
+            // }
+            // if (sumWeights > QUADRANGLEDISTORT_DELTA) {
+            //     for (auto c=0; c < srcComps; c++) {
+            //         dstPix[c] = sumValues.get()[c] / sumWeights;
+            //     }
+            // } else {
+            //     bilinear(
+            //         quad.edges[0].p.x,
+            //         quad.edges[0].p.y,
+            //         srcImg.get(),
+            //         srcPix.get(),
+            //         srcComps
+            //     );
+            //     for (auto c=0; c < srcComps; c++) {
+            //         dstPix[c] = srcPix.get()[c];
+            //     }
+            // }
+            auto pix = (float*)offImg->getPixelAddressNearest(x, y);
+            bilinear(
+                x + pix[0] * args.renderScale.x / srcPar,
+                y + pix[1] * args.renderScale.y,
+                srcImg.get(),
+                dstPix,
+                srcComps
+            );
         }
     }
 }
