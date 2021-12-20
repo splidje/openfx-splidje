@@ -68,7 +68,7 @@ void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &de
             }
         }
         {
-            auto param = desc.defineDoubleParam(kParamSmudgeRadius);
+            auto param = desc.defineDoubleParam(kParamMaxSmudgeRadius);
             param->setDefault(50);
             param->setRange(0.01, INT_MAX);
             if (page) {

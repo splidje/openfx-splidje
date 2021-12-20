@@ -12,7 +12,7 @@
 
 #define kParamBlackOutside "blackOutside"
 
-#define kParamSmudgeRadius "smudgeRadius"
+#define kParamMaxSmudgeRadius "maxSmudgeRadius"
 
 #define kParamMaxSmudgeLength "maxSmudgeLength"
 

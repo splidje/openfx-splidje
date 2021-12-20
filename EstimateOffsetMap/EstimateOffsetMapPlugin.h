@@ -39,7 +39,7 @@ private:
     Clip* _trgClip;
     Clip* _dstClip;
     BooleanParam* _blackOutside;
-    DoubleParam* _smudgeRadius;
+    DoubleParam* _maxSmudgeRadius;
     DoubleParam* _maxSmudgeLength;
     IntParam* _iterations;
     IntParam* _seed;

@@ -21,7 +21,7 @@ EstimateOffsetMapPlugin::EstimateOffsetMapPlugin(OfxImageEffectHandle handle)
     assert(_dstClip && (_dstClip->getPixelComponents() == ePixelComponentRGB ||
     	    _dstClip->getPixelComponents() == ePixelComponentRGBA));
     _blackOutside = fetchBooleanParam(kParamBlackOutside);
-    _smudgeRadius = fetchDoubleParam(kParamSmudgeRadius);
+    _maxSmudgeRadius = fetchDoubleParam(kParamMaxSmudgeRadius);
     _maxSmudgeLength = fetchDoubleParam(kParamMaxSmudgeLength);
     _iterations = fetchIntParam(kParamIterations);
     _seed = fetchIntParam(kParamSeed);
@@ -77,13 +77,12 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
     limits.y1 = srcROD.y1 - 1;
     limits.x2 = srcROD.x2 + 1;
     limits.y2 = srcROD.y2 + 1;
-    auto limitsWidth = limits.x2 - limits.x1;
-    auto limitsHeight = limits.y2 - limits.y1;
 
     auto blackOutside = _blackOutside->getValueAtTime(args.time);
-    auto smudgeRadius = _smudgeRadius->getValueAtTime(args.time);
+    auto maxSmudgeRadius = _maxSmudgeRadius->getValueAtTime(args.time);
     auto maxSmudgeLength = _maxSmudgeLength->getValueAtTime(args.time);
     auto iterations = _iterations->getValueAtTime(args.time);
+    auto seed = _seed->getValueAtTime(args.time);
 
     auto rndWidth = args.renderWindow.x2 - args.renderWindow.x1;
     auto rndHeight = args.renderWindow.y2 - args.renderWindow.y1;
@@ -127,17 +126,16 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
         }
     }
 
-    double radius = smudgeRadius * args.renderScale.x;
+    double max_radius = maxSmudgeRadius * args.renderScale.x;
     double maxBladeLen = maxSmudgeLength * args.renderScale.x;
     std::random_device rd;
     std::default_random_engine eng(rd());
-    eng.seed(_seed->getValueAtTime(args.time));
+    eng.seed(seed);
     std::uniform_real_distribution<double> distrFromX(trgROD.x1, trgROD.x2);
     std::uniform_real_distribution<double> distrFromY(trgROD.y1, trgROD.y2);
     auto not_zero = std::min(args.renderScale.x, args.renderScale.y);
-
+    std::uniform_real_distribution<double> distrRad(not_zero, max_radius);
     std::uniform_real_distribution<double> distrBladeAng(0, M_PI * 2);
-    std::uniform_real_distribution<double> distrBladeLen(radius + not_zero, std::max(radius + not_zero, maxBladeLen));
 
     auto_ptr<float> scratchDraws(new float[rndNumPixels * 2]);
     auto_ptr<float> scratchDiffs(new float[rndNumPixels * comps]);
@@ -148,7 +146,9 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
         if (abort()) {return;}
         auto fromX = distrFromX(eng);
         auto fromY = distrFromY(eng);
+        auto radius = distrRad(eng);
         auto bladeAng = distrBladeAng(eng);
+        std::uniform_real_distribution<double> distrBladeLen(radius + not_zero, std::max(radius + not_zero, maxBladeLen));
         auto blade = distrBladeLen(eng);
         auto bladeX = blade * cos(bladeAng);
         auto bladeY = blade * sin(bladeAng);
@@ -248,8 +248,10 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
                 drawsPtr = draws.get() + offset * 2;
                 scratchDrawsPtr = scratchDraws.get() + offset * 2;
                 changedPtr = changed.get() + offset;
-                scratchDrawsPtr[0] = drawsPtr[0] + power * toTipX;
-                scratchDrawsPtr[1] = drawsPtr[1] + power * toTipY;
+                auto newX = std::max((float)limits.x1, std::min((float)limits.x2, (float)(drawsPtr[0] + power * toTipX)));
+                auto newY = std::max((float)limits.y1, std::min((float)limits.y2, (float)(drawsPtr[1] + power * toTipY)));
+                scratchDrawsPtr[0] = newX;
+                scratchDrawsPtr[1] = newY;
 
                 *changedPtr = true;
 
@@ -259,8 +261,7 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
                     x, y, trgImg.get(), tempPix.get(), comps, blackOutside
                 );
                 bilinear(
-                    scratchDrawsPtr[0], scratchDrawsPtr[1]
-                    ,srcImg.get(), tempPix2.get()
+                    newX, newY, srcImg.get(), tempPix2.get()
                     ,comps, blackOutside
                 );
                 auto tempPixPtr = tempPix.get();
