@@ -9,7 +9,7 @@ TriangleMaths.o\
 FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o\
 QuadrangleDistort.o\
 QuadrangleDistortPluginFactory.o QuadrangleDistortPlugin.o QuadrangleDistortPluginInteract.o\
-EstimateOffsetMapPluginFactory.o EstimateOffsetMapPlugin.o
+EstimateOffsetMapPluginFactory.o EstimateOffsetMapPlugin.o EstimateOffsetMapPluginInteract.o
 # TranslateMapPluginFactory.o TranslateMapPlugin.o\
 # MeshWarp.o\
 

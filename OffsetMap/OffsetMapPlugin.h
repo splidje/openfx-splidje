@@ -16,6 +16,8 @@ using namespace OFX;
 #define kSourceClip "Source"
 #define kOffsetsClip "Offsets"
 
+#define kParamBlackOutside "blackOutside"
+
 
 class OffsetMapPlugin : public ImageEffect
 {
@@ -43,4 +45,5 @@ private:
     Clip* _srcClip;
     Clip* _offClip;
     Clip* _dstClip;
+    BooleanParam* _blackOutside;
 };

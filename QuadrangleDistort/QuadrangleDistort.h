@@ -104,5 +104,5 @@ namespace QuadrangleDistort {
         double _denom3;
     };
 
-    void bilinear(double x, double y, Image* img, float* outPix, int componentCount);
+    void bilinear(double x, double y, Image* img, float* outPix, int componentCount, bool blackOutside=false);
 }

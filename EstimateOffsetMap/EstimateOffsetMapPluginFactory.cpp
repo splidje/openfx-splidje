@@ -1,5 +1,7 @@
 #include "EstimateOffsetMapPluginFactory.h"
 #include "EstimateOffsetMapPlugin.h"
+#include "EstimateOffsetMapPluginInteract.h"
+
 
 void EstimateOffsetMapPluginFactory::describe(ImageEffectDescriptor &desc)
 {
@@ -24,6 +26,8 @@ void EstimateOffsetMapPluginFactory::describe(ImageEffectDescriptor &desc)
     desc.setSupportsMultipleClipPARs(true);
     desc.setSupportsMultipleClipDepths(false);
     desc.setRenderThreadSafety(eRenderUnsafe);
+
+    desc.setOverlayInteractDescriptor(new EstimateOffsetMapPluginOverlayDescriptor);
 }
 
 void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, ContextEnum context)
@@ -56,6 +60,29 @@ void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &de
     // Controls
     {
         auto page = desc.definePageParam("Controls");
+        {
+            auto param = desc.defineBooleanParam(kParamBlackOutside);
+            param->setDefault(true);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamSmudgeRadius);
+            param->setDefault(50);
+            param->setRange(0.01, INT_MAX);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamMaxSmudgeLength);
+            param->setDefault(200);
+            param->setRange(0.02, INT_MAX);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
         {
             auto param = desc.defineIntParam(kParamIterations);
             if (page) {

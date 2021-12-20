@@ -590,7 +590,7 @@ void Polygon::initialiseLastEdgeVect(OfxPointD toP) {
 }
 
 
-void QuadrangleDistort::bilinear(double x, double y, Image* img, float* outPix, int componentCount) {
+void QuadrangleDistort::bilinear(double x, double y, Image* img, float* outPix, int componentCount, bool blackOutside) {
     auto floorX = floor(x);
     auto floorY = floor(y);
     double xWeights[2];
@@ -603,7 +603,15 @@ void QuadrangleDistort::bilinear(double x, double y, Image* img, float* outPix, 
     for (int c=0; c < componentCount; c++) {outPix[c] = 0;}
     for (int y=0; y < 2; y++) {
         for (int x=0; x < 2; x++) {
-            pix = (float*)img->getPixelAddressNearest(floorX + x, floorY + y);
+            if (blackOutside) {
+                pix = (float*)img->getPixelAddress(floorX + x, floorY + y);
+                if (!pix) {
+                    pix += componentCount;
+                    continue;
+                }
+            } else {
+                pix = (float*)img->getPixelAddressNearest(floorX + x, floorY + y);
+            }
             for (int c=0; c < componentCount; c++, pix++) {
                 outPix[c] += xWeights[x] * yWeights[y] * *pix;
             }

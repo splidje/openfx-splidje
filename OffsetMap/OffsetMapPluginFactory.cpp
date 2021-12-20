@@ -59,6 +59,18 @@ void OffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, Cont
 #endif
     dstClip->setTemporalClipAccess(false);
     dstClip->setSupportsTiles(true);
+
+    // Controls
+    {
+        auto page = desc.definePageParam("Controls");
+        {
+            auto param = desc.defineBooleanParam(kParamBlackOutside);
+            param->setDefault(true);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+    }
 }
 
 ImageEffect* OffsetMapPluginFactory::createInstance(OfxImageEffectHandle handle, ContextEnum /*context*/)

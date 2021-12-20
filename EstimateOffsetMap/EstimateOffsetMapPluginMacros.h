@@ -10,6 +10,12 @@
 #define kSourceClip "Source"
 #define kTargetClip "Target"
 
+#define kParamBlackOutside "blackOutside"
+
+#define kParamSmudgeRadius "smudgeRadius"
+
+#define kParamMaxSmudgeLength "maxSmudgeLength"
+
 #define kParamIterations "iterations"
 
 #define kParamSeed "seed"
