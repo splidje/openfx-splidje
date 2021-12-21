@@ -12,9 +12,15 @@
 
 #define kParamBlackOutside "blackOutside"
 
-#define kParamMaxSmudgeRadius "maxSmudgeRadius"
+#define kParamMinScale "minScale"
 
-#define kParamMaxSmudgeLength "maxSmudgeLength"
+#define kParamMaxScale "maxScale"
+
+#define kParamMinRotate "minRotate"
+
+#define kParamMaxRotate "maxRotate"
+
+#define kParamMaxTranslate "maxTranslate"
 
 #define kParamIterations "iterations"
 

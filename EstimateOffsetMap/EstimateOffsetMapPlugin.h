@@ -20,8 +20,6 @@ class EstimateOffsetMapPlugin : public ImageEffect
 public:
     EstimateOffsetMapPlugin(OfxImageEffectHandle handle);
 
-    void getSwords(std::vector<sword_t>* swords);
-
 private:
     virtual bool getRegionOfDefinition(const RegionOfDefinitionArguments &args, OfxRectD &rod) OVERRIDE FINAL;
 
@@ -32,18 +30,16 @@ private:
     /* Override the render */
     virtual void render(const OFX::RenderArguments &args) OVERRIDE FINAL;
 
-    void setSwords(std::vector<sword_t>* swords);
-
 private:
     Clip* _srcClip;
     Clip* _trgClip;
     Clip* _dstClip;
     BooleanParam* _blackOutside;
-    DoubleParam* _maxSmudgeRadius;
-    DoubleParam* _maxSmudgeLength;
+    DoubleParam* _minRotate;
+    DoubleParam* _maxRotate;
+    DoubleParam* _minScale;
+    DoubleParam* _maxScale;
+    DoubleParam* _maxTranslate;
     IntParam* _iterations;
     IntParam* _seed;
-
-    std::vector<sword_t> _swords;
-    std::mutex _swordsLock;
 };

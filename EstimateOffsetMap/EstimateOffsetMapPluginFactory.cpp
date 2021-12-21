@@ -68,17 +68,39 @@ void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &de
             }
         }
         {
-            auto param = desc.defineDoubleParam(kParamMaxSmudgeRadius);
-            param->setDefault(50);
-            param->setRange(0.01, INT_MAX);
+            auto param = desc.defineDoubleParam(kParamMinScale);
+            param->setDefault(0.5);
+            param->setRange(0, INT_MAX);
             if (page) {
                 page->addChild(*param);
             }
         }
         {
-            auto param = desc.defineDoubleParam(kParamMaxSmudgeLength);
-            param->setDefault(200);
-            param->setRange(0.02, INT_MAX);
+            auto param = desc.defineDoubleParam(kParamMaxScale);
+            param->setDefault(2);
+            param->setRange(0, INT_MAX);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamMinRotate);
+            param->setDefault(-30);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamMaxRotate);
+            param->setDefault(30);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamMaxTranslate);
+            param->setDefault(50);
+            param->setRange(0, INT_MAX);
             if (page) {
                 page->addChild(*param);
             }
