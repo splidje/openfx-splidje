@@ -68,16 +68,16 @@ void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &de
             }
         }
         {
-            auto param = desc.defineDoubleParam(kParamMinScale);
-            param->setDefault(0.5);
+            auto param = desc.defineDoubleParam(kParamMinRadius);
+            param->setDefault(5);
             param->setRange(0, INT_MAX);
             if (page) {
                 page->addChild(*param);
             }
         }
         {
-            auto param = desc.defineDoubleParam(kParamMaxScale);
-            param->setDefault(2);
+            auto param = desc.defineDoubleParam(kParamMaxRadius);
+            param->setDefault(20);
             param->setRange(0, INT_MAX);
             if (page) {
                 page->addChild(*param);
@@ -93,6 +93,22 @@ void EstimateOffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &de
         {
             auto param = desc.defineDoubleParam(kParamMaxRotate);
             param->setDefault(30);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamMinScale);
+            param->setDefault(0.5);
+            param->setRange(0, INT_MAX);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.defineDoubleParam(kParamMaxScale);
+            param->setDefault(2);
+            param->setRange(0, INT_MAX);
             if (page) {
                 page->addChild(*param);
             }

@@ -12,13 +12,17 @@
 
 #define kParamBlackOutside "blackOutside"
 
-#define kParamMinScale "minScale"
+#define kParamMinRadius "minRadius"
 
-#define kParamMaxScale "maxScale"
+#define kParamMaxRadius "maxRadius"
 
 #define kParamMinRotate "minRotate"
 
 #define kParamMaxRotate "maxRotate"
+
+#define kParamMinScale "minScale"
+
+#define kParamMaxScale "maxScale"
 
 #define kParamMaxTranslate "maxTranslate"
 

@@ -21,10 +21,12 @@ EstimateOffsetMapPlugin::EstimateOffsetMapPlugin(OfxImageEffectHandle handle)
     assert(_dstClip && (_dstClip->getPixelComponents() == ePixelComponentRGB ||
     	    _dstClip->getPixelComponents() == ePixelComponentRGBA));
     _blackOutside = fetchBooleanParam(kParamBlackOutside);
-    _minScale = fetchDoubleParam(kParamMinScale);
-    _maxScale = fetchDoubleParam(kParamMaxScale);
+    _minRadius = fetchDoubleParam(kParamMinRadius);
+    _maxRadius = fetchDoubleParam(kParamMaxRadius);
     _minRotate = fetchDoubleParam(kParamMinRotate);
     _maxRotate = fetchDoubleParam(kParamMaxRotate);
+    _minScale = fetchDoubleParam(kParamMinScale);
+    _maxScale = fetchDoubleParam(kParamMaxScale);
     _maxTranslate = fetchDoubleParam(kParamMaxTranslate);
     _iterations = fetchIntParam(kParamIterations);
     _seed = fetchIntParam(kParamSeed);
@@ -79,18 +81,14 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
     auto trgPar = trgImg->getPixelAspectRatio();
     auto comps = std::min(srcImg->getPixelComponentCount(), trgImg->getPixelComponentCount());
 
-    OfxRectI limits;
-    limits.x1 = srcROD.x1 - 1;
-    limits.y1 = srcROD.y1 - 1;
-    limits.x2 = srcROD.x2 + 1;
-    limits.y2 = srcROD.y2 + 1;
-
     auto blackOutside = _blackOutside->getValueAtTime(args.time);
-    auto minScale = _minScale->getValueAtTime(args.time);
-    auto maxScale = _maxScale->getValueAtTime(args.time);
+    auto minRadiusCan = _minRadius->getValueAtTime(args.time);
+    auto maxRadiusCan = _maxRadius->getValueAtTime(args.time);
     auto minRotateEuc = _minRotate->getValueAtTime(args.time);
     auto maxRotateEuc = _maxRotate->getValueAtTime(args.time);
-    auto maxTranslate = _maxTranslate->getValueAtTime(args.time);
+    auto minScale = _minScale->getValueAtTime(args.time);
+    auto maxScale = _maxScale->getValueAtTime(args.time);
+    auto maxTranslateCan = _maxTranslate->getValueAtTime(args.time);
     auto iterations = _iterations->getValueAtTime(args.time);
     auto seed = _seed->getValueAtTime(args.time);
 
@@ -98,8 +96,6 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
     auto rndHeight = args.renderWindow.y2 - args.renderWindow.y1;
     auto rndNumPixels = rndWidth * rndHeight;
        
-    auto_ptr<float> tempPix(new float[comps]);
-
     // initialise offsets & differences
     auto_ptr<float> draws(new float[rndNumPixels * 2]);
     auto_ptr<float> diffs(new float[rndNumPixels]);
@@ -107,51 +103,53 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
     auto drawsPtr = draws.get();
     auto diffPtr = diffs.get();
     auto changedPtr = changed.get();
-    auto diffSum = 0;
+    float* trgPix;
     for (auto y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
         for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++
             ,drawsPtr += 2, diffPtr++, changedPtr++)
         {
             if (abort()) {return;}
             *changedPtr = false;
-            auto srcX = (x - trgROD.x1) * trgToSrcScaleX + srcROD.x1;
-            auto srcY = (y - trgROD.y1) * trgToSrcScaleY + srcROD.y1;
             for (auto c=0; c < 2; c++) {
-                drawsPtr[0] = srcX;
-                drawsPtr[1] = srcY;
+                drawsPtr[0] = x;
+                drawsPtr[1] = y;
             }
-            bilinear(
-                srcX
-                ,srcY
-                ,srcImg.get()
-                ,tempPix.get()
-                ,comps
-                ,blackOutside
-            );
-            auto trgPix = (float*)trgImg->getPixelAddress(x, y);
+            float* srcPix;
+            if (blackOutside) {
+                srcPix = (float*)srcImg->getPixelAddress(x, y);
+            } else {
+                srcPix = (float*)srcImg->getPixelAddressNearest(x, y);
+            }
+            trgPix = (float*)trgImg->getPixelAddress(x, y);
             *diffPtr = 0;
             for (auto c=0; c < comps; c++) {
+                auto srcVal = srcPix ? srcPix[c] : 0;
                 auto trgVal = trgPix ? trgPix[c] : 0;
-                *diffPtr += std::abs(trgVal - tempPix.get()[c]);
+                *diffPtr += std::abs(trgVal - srcVal);
             }
-            diffSum += *diffPtr;
         }
     }
-    auto diffMean = (double)diffSum / (double)rndNumPixels;
 
     std::random_device rd;
     std::default_random_engine eng(rd());
     eng.seed(seed);
-    std::uniform_real_distribution<double> distrScale(minScale, maxScale);
+    std::uniform_real_distribution<double> distrRadius(minRadiusCan * args.renderScale.x, maxRadiusCan * args.renderScale.x);
     std::uniform_real_distribution<double> distrRot(toRadians(minRotateEuc), toRadians(maxRotateEuc));
-    std::uniform_real_distribution<double> distrTranslate(0, maxTranslate);
+    std::uniform_real_distribution<double> distrScale(minScale, maxScale);
+    std::uniform_real_distribution<double> distrTranslate(0, maxTranslateCan * args.renderScale.x);
     std::uniform_real_distribution<double> distrTransDir(0, M_PI * 2);
     std::uniform_real_distribution<double> distrSrcX(srcROD.x1, srcROD.x2);
     std::uniform_real_distribution<double> distrSrcY(srcROD.y1, srcROD.y2);
 
+    auto_ptr<float> scratchDraws(new float[rndNumPixels * 2]);
+    auto_ptr<float> scratchDiffs(new float[rndNumPixels]);
+    float* scratchDrawPtr;
+    float* scratchDiffPtr;
     for (auto i=0; i < iterations; i++) {
         auto centreX = distrSrcX(eng);
         auto centreY = distrSrcY(eng);
+        auto radius = distrRadius(eng);
+        auto radiusSq = radius * radius;
         auto scaleX = distrScale(eng);
         auto scaleY = distrScale(eng);
         auto rot = distrRot(eng);
@@ -160,43 +158,109 @@ void EstimateOffsetMapPlugin::render(const OFX::RenderArguments &args)
         auto transX = translate * cos(transDir);
         auto transY = translate * sin(transDir);
 
-        diffSum = 0;
-        diffPtr = diffs.get();
-        drawsPtr = draws.get();
-        for (auto y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {
+        auto trgCentreX = centreX + transX;
+        auto trgCentreY = centreY + transY;
+        auto trgRadiusX = scaleX * radius;
+        auto trgRadiusY = scaleY * radius;
+
+        OfxRectI bounds;
+        bounds.x1 = std::max(
+            (int)std::floor(trgCentreX - trgRadiusX)
+            ,args.renderWindow.x1
+        );
+        bounds.y1 = std::max(
+            (int)std::floor(trgCentreY - trgRadiusY)
+            ,args.renderWindow.y1
+        );
+        bounds.x2 = std::min(
+            (int)std::ceil(trgCentreX + trgRadiusX)
+            ,args.renderWindow.x2
+        );
+        bounds.y2 = std::min(
+            (int)std::ceil(trgCentreY + trgRadiusY)
+            ,args.renderWindow.y2
+        );
+
+        double oldScore = 0;
+        double newScore = 0;
+        auto_ptr<float> srcPix(new float[comps]);
+        for (auto y=bounds.y1; y < bounds.y2; y++) {
             if (abort()) {return;}
-            for (auto x=args.renderWindow.x1; x < args.renderWindow.x2; x++, diffPtr++, drawsPtr += 2) {
-                if (*diffPtr <= diffMean) {
-                    diffSum += *diffPtr;
+            for (auto x=bounds.x1; x < bounds.x2; x++) {
+                // relative to translated centre
+                auto dx = x - trgCentreX;
+                auto dy = y - trgCentreY;
+                // undo scale
+                dx /= scaleX;
+                dy /= scaleY;
+                // undo the rotate
+                auto rotX = dx * cos(-rot) - dy * sin(-rot);
+                auto rotY = dx * sin(-rot) + dy * cos(-rot);
+                // within the radius?
+                auto distSq = rotX*rotX + rotY*rotY;
+                if (distSq > radiusSq) {
                     continue;
                 }
-                auto dx = drawsPtr[0] - centreX;
-                auto dy = drawsPtr[1] - centreY;
-                dx *= scaleX;
-                dy *= scaleY;
-                auto rotX = dx * cos(rot) - dy * sin(rot);
-                auto rotY = dx * sin(rot) + dy * cos(rot);
-                rotX += transX;
-                rotY += transY;
-                // rotX = std::max((float)limits.x1, std::min((float)limits.x2, (float)rotX));
-                // rotY = std::max((float)limits.y1, std::min((float)limits.y2, (float)rotY));
-                drawsPtr[0] = rotX;
-                drawsPtr[1] = rotY;
-                auto trgPix = (float*)trgImg->getPixelAddress(x, y);
+                // set to draw from this src point
+                auto srcX = centreX + rotX;
+                auto srcY = centreY + rotY;
+                auto offset = rndWidth * (y - args.renderWindow.y1) + (x - args.renderWindow.x1);
+                changedPtr = changed.get() + offset;
+                *changedPtr = true;
+                scratchDrawPtr = scratchDraws.get() + offset * 2;
+                scratchDrawPtr[0] = srcX;
+                scratchDrawPtr[1] = srcY;
+                diffPtr = diffs.get() + offset;
+                oldScore += *diffPtr;
+                scratchDiffPtr = scratchDiffs.get() + offset;
+                *scratchDiffPtr = 0;
+                trgPix = (float*)trgImg->getPixelAddress(x, y);
                 bilinear(
-                    rotX
-                    ,rotY
+                    srcX
+                    ,srcY
                     ,srcImg.get()
-                    ,tempPix.get()
+                    ,srcPix.get()
                     ,comps
                     ,blackOutside
                 );
                 for (auto c=0; c < comps; c++) {
-                    diffSum += std::abs(trgPix[c] - tempPix.get()[c]);
+                    *scratchDiffPtr += std::abs(trgPix[c] - srcPix.get()[c]);
+                }
+                newScore += *scratchDiffPtr;
+            }
+        }
+
+        if (newScore < oldScore) {
+            for (auto y=bounds.y1; y < bounds.y2; y++) {
+                if (abort()) {return;}
+                for (auto x=bounds.x1; x < bounds.x2; x++) {
+                    auto offset = rndWidth * (y - args.renderWindow.y1) + (x - args.renderWindow.x1);
+                    changedPtr = changed.get() + offset;
+                    if (!*changedPtr) {
+                        continue;
+                    }
+                    *changedPtr = false;
+                    scratchDrawPtr = scratchDraws.get() + offset * 2;
+                    drawsPtr = draws.get() + offset * 2;
+                    drawsPtr[0] = scratchDrawPtr[0];
+                    drawsPtr[1] = scratchDrawPtr[1];
+                    scratchDiffPtr = scratchDiffs.get() + offset;
+                    diffPtr = diffs.get() + offset;
+                    *diffPtr = *scratchDiffPtr;
+                }
+            }
+        } else {
+            // wipe changed
+            for (auto y=bounds.y1; y < bounds.y2; y++) {
+                if (abort()) {return;}
+                for (auto x=bounds.x1; x < bounds.x2; x++) {
+                    auto offset = rndWidth * (y - args.renderWindow.y1) + (x - args.renderWindow.x1);
+                    changedPtr = changed.get() + offset;
+                    *changedPtr = false;
                 }
             }
         }
-        diffMean = (double)diffSum / (double)rndNumPixels;
+    }
 
     // write out and readjust values
     drawsPtr = draws.get();

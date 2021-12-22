@@ -35,6 +35,8 @@ private:
     Clip* _trgClip;
     Clip* _dstClip;
     BooleanParam* _blackOutside;
+    DoubleParam* _minRadius;
+    DoubleParam* _maxRadius;
     DoubleParam* _minRotate;
     DoubleParam* _maxRotate;
     DoubleParam* _minScale;
