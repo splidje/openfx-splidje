@@ -14,45 +14,21 @@ using namespace OFX;
 
 #define kPluginIdentifier "com.ajptechnical.openfx.PatchMatch"
 #define kPluginVersionMajor 0
-#define kPluginVersionMinor 1
+#define kPluginVersionMinor 2
 
 #define kSourceClip "Source"
 #define kTargetClip "Target"
 #define kInitialClip "Initial"
 
 #define kParamPatchSize "patchSize"
-#define kParamPatchSizeLabel "Patch Size"
-#define kParamPatchSizeHint "Patch Size"
 
 #define kParamStartLevel "startLevel"
-#define kParamStartLevelLabel "Start Level"
-#define kParamStartLevelHint "Start Level"
 
 #define kParamEndLevel "endLevel"
-#define kParamEndLevelLabel "End Level"
-#define kParamEndLevelHint "End Level"
 
-#define kParamIterations "iterations"
-#define kParamIterationsLabel "Iterations"
-#define kParamIterationsHint "Iterations"
-
-#define kParamAcceptableScore "acceptableScore"
-#define kParamAcceptableScoreLabel "Acceptable Score"
-#define kParamAcceptableScoreHint "Acceptable Score"
-#define kParamAcceptableScoreDefault -1
-
-#define kParamSpatialImpairmentFactor "spatialImpairmentFactor"
-#define kParamSpatialImpairmentFactorLabel "Spatial Impairment Factor"
-#define kParamSpatialImpairmentFactorHint "Spatial Impairment Factor"
-#define kParamSpatialImpairmentFactorDefault 0
+#define kParamNumIterations "numIterations"
 
 #define kParamRandomSeed "seed"
-#define kParamRandomSeedLabel "Random Seed"
-#define kParamRandomSeedHint "Random Seed"
-
-#define kParamLogCoords "logCoords"
-#define kParamLogCoordsLabel "Log Coords"
-#define kParamLogCoordsHint "Log Coords"
 
 
 class PatchMatchPlugin : public ImageEffect
@@ -62,23 +38,9 @@ public:
 
     int calculateNumLevelsAtTime(double time);
 
-    Clip* srcClip;
-    Clip* trgClip;
-    Clip* dstClip;
-    Clip* initClip;
-    IntParam* patchSize;
-    IntParam* endLevel;
-    IntParam* startLevel;
-    DoubleParam* iterations;
-    DoubleParam* acceptableScore;
-    DoubleParam* spatialImpairmentFactor;
-    IntParam* randomSeed;
-    Int2DParam* logCoords;
-
 private:
-    /* Override the render */
-    virtual void render(const OFX::RenderArguments &args) OVERRIDE FINAL;
-    
+    virtual void getRegionsOfInterest(const RegionsOfInterestArguments& args, RegionOfInterestSetter &rois) OVERRIDE FINAL;
+
     virtual bool isIdentity(const IsIdentityArguments &args, Clip * &identityClip, double &identityTime
 #ifdef OFX_EXTENSIONS_NUKE
     , int& view
@@ -87,6 +49,19 @@ private:
     ) OVERRIDE FINAL;
 
     bool getRegionOfDefinition(const RegionOfDefinitionArguments &args, OfxRectD &rod) OVERRIDE FINAL;
+
+    /* Override the render */
+    virtual void render(const OFX::RenderArguments &args) OVERRIDE FINAL;
+    
+    Clip* _srcClip;
+    Clip* _trgClip;
+    Clip* _dstClip;
+    Clip* _initClip;
+    IntParam* _patchSize;
+    IntParam* _endLevel;
+    IntParam* _startLevel;
+    IntParam* _numIterations;
+    IntParam* _randomSeed;
 };
 
 #endif // def PATCHMATCHPLUGIN_H

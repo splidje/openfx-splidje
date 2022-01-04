@@ -8,6 +8,9 @@ Bundle/Linux-64-release
 *.mp4
 *.ntp*
 *.dat
+*.mov
+*.exr
+deleteme*
 
 PatchMatch/seagull_vects_v001/
 natron crash_001

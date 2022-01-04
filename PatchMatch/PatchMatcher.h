@@ -4,98 +4,62 @@
 #include "PatchMatchPlugin.h"
 
 
-class SimpleImage {
+class VectorGrid {
 public:
-    int width;
-    int height;
-    int components;
-    float* data;
-    bool _ours;
-    SimpleImage(int w, int h, int c, float* d) {
-        width = w;
-        height = h;
-        components = c;
-        data = d;
-        _ours = false;
+    VectorGrid(const OfxRectI& rod, int componentCount);
+    VectorGrid(Image* img);
+
+    inline static VectorGrid* fromClip(Clip* clip, double t) {
+        auto_ptr<Image> img(clip->fetchImage(t));
+        if (!img.get()) {return NULL;}
+        return new VectorGrid(img.get());
     }
-    SimpleImage(int w, int h, int c) {
-        width = w;
-        height = h;
-        components = c;
-        data = new float[w*h*c];
-        _ours = true;
-    }
-    ~SimpleImage() {
-        if (_ours) {delete[] data;}
-    }
-    inline bool valid(int x, int y) {
-        return x >= 0 && y >= 0 && x < width && y < height;
-    }
-    inline float* pix(int x, int y) {
-        return data + (y * width + x) * components;
-    }
-    inline OfxPointI vect(int x, int y) {
-        OfxPointI p;
-        if (valid(x,y)) {
-            auto a = pix(x, y);
-            p.x = a[0];
-            p.y = a[1];
-        }
-        else {
-            p.x = 0;
-            p.y = 0;
-        }
-        return p;
-    }
+
+    void toClip(Clip* clip, double t, const OfxRectI& window) const;
+
+    VectorGrid* scale(double f) const;
+
+    float* getVectorAddress(const OfxPointI& p) const;
+    float* getVectorAddressNearest(const OfxPointI& p) const;
+
+    void bilinear(double x, double y, float* outPix) const;
+
+    OfxRectI getROD() const {return _rod;}
+
+    float* getDataAddress() {return _data.get();}
+
+    void operator/=(const OfxPointD& d);
+
+private:
+    OfxRectI _rod;
+    int _componentCount;
+    int _dataWidth;
+    auto_ptr<float> _data;
+
+    void _initialiseData();
+    float* _getVectorAddress(const OfxPointI& p) const;
 };
 
 
 class PatchMatcher {
 public:
-    PatchMatcher(PatchMatchPlugin* plugin, const RenderArguments &args);
-    ~PatchMatcher() {delete[] _patch.offXs;}
-    void render();
+    PatchMatcher(const VectorGrid* src, const VectorGrid* trg, int patchSize, const PatchMatchPlugin* plugin);
+
+    void randomInitialise();
+    void iterate(int numIterations);
+    void merge(const VectorGrid* mergeTranslateMap, double scale);
+    VectorGrid* releaseTranslateMap();
 
 private:
-    SimpleImage* resample(const Image* image, double scale);
-    void initialiseLevel();
-    bool propagateAndSearch(int iterNum, int iterLen);
-    inline void score(int xSrc, int ySrc, int xTrg, int yTrg, float* best
-                     ,float idealRadSq=-1, float idealRad=0, float idealX=0, float idealY=0);
-    inline void initScan(int xSrc, int ySrc, int xTrg, int yTrg);
-    inline void nextScanRow();
+    const VectorGrid* _src;
+    const VectorGrid* _trg;
+    const int _patchSize;
+    const PatchMatchPlugin* _plugin;
+    auto_ptr<double> _patchWeights;
+    auto_ptr<VectorGrid> _translateMap;
+    auto_ptr<VectorGrid> _distances;
 
-    PatchMatchPlugin* _plugin;
-    RenderArguments _renderArgs;
-
-    auto_ptr<Image> _srcA;
-    auto_ptr<Image> _srcB;
-
-    auto_ptr<SimpleImage> _imgSrc;
-    auto_ptr<SimpleImage> _imgTrg;
-    auto_ptr<SimpleImage> _imgVect;
-    int _numLevels, _startLevel, _endLevel, _level, _iterationNum, _iterationLength, _offX, _offY;
-    double _iterations, _acceptableScore, _spatialImpairmentFactor, _maxDist;
-    OfxPointI _logCoords;
-
-    struct {
-        int offY;
-        int *offXs;
-        int *endOffXs;
-        int count;
-    } _patch;
-
-    struct {
-        int numRows, numCols;
-        float *pixSrc, *pixTrg;
-        int *_offX;
-        int _curOffX, _offXMax, _offXMin;
-    } _scan;
+    double _distance(OfxPointI& p, OfxPointD& offset);
 };
-
-inline int boundsWidth(const OfxRectI& bounds) {return bounds.x2 - bounds.x1;}
-inline int boundsHeight(const OfxRectI& bounds) {return bounds.y2 - bounds.y1;}
-inline double boundsWidth(const OfxRectD& bounds) {return bounds.x2 - bounds.x1;}
-inline double boundsHeight(const OfxRectD& bounds) {return bounds.y2 - bounds.y1;}
 
 #endif // def PATCHMATCHER_H

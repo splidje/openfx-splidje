@@ -6,11 +6,11 @@ OffsetMapPluginFactory.o OffsetMapPlugin.o\
 FaceTrackPluginBase.o\
 FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackPluginInteract.o\
 TriangleMaths.o\
-MeshWarp.o\
 FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o\
 QuadrangleDistort.o\
 TranslateMapPluginFactory.o TranslateMapPlugin.o\
 CornerPinPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o
+#MeshWarp.o\
 
 SRCDIR = ..
 

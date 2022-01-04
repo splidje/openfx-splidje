@@ -49,14 +49,14 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
     dstClip->addSupportedComponent(ePixelComponentRGB);
+    dstClip->setTemporalClipAccess(false);
     dstClip->setSupportsTiles(true);
+    dstClip->setIsMask(false);
 
     // create the optional initial clip
     ClipDescriptor *initClip = desc.defineClip(kInitialClip);
     initClip->setOptional(true);
-    initClip->addSupportedComponent(ePixelComponentRGBA);
     initClip->addSupportedComponent(ePixelComponentRGB);
-    initClip->addSupportedComponent(ePixelComponentAlpha);
     initClip->setTemporalClipAccess(false);
     initClip->setSupportsTiles(true);
     initClip->setIsMask(false);
@@ -64,8 +64,6 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
     PageParamDescriptor *page = desc.definePageParam("Controls");
     {
         IntParamDescriptor* param = desc.defineIntParam(kParamPatchSize);
-        param->setLabel(kParamPatchSizeLabel);
-        param->setHint(kParamPatchSizeHint);
         param->setDefault(5);
         param->setDisplayRange(3, 11);
         if (page) {
@@ -74,8 +72,6 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
     }
     {
         IntParamDescriptor* param = desc.defineIntParam(kParamStartLevel);
-        param->setLabel(kParamStartLevelLabel);
-        param->setHint(kParamStartLevelHint);
         param->setDefault(1);
         param->setDisplayRange(1, 10);
         if (page) {
@@ -84,59 +80,24 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
     }
     {
         IntParamDescriptor* param = desc.defineIntParam(kParamEndLevel);
-        param->setLabel(kParamEndLevelLabel);
-        param->setHint(kParamEndLevelHint);
-        param->setDefault(1);
+        param->setDefault(10);
         param->setDisplayRange(1, 10);
         if (page) {
             page->addChild(*param);
         }
     }
     {
-        auto param = desc.defineDoubleParam(kParamIterations);
-        param->setLabel(kParamIterationsLabel);
-        param->setHint(kParamIterationsHint);
+        auto param = desc.defineIntParam(kParamNumIterations);
         param->setDefault(0);
-        if (page) {
-            page->addChild(*param);
-        }
-    }
-    {
-        auto param = desc.defineDoubleParam(kParamAcceptableScore);
-        param->setLabel(kParamAcceptableScoreLabel);
-        param->setHint(kParamAcceptableScoreHint);
-        param->setDefault(kParamAcceptableScoreDefault);
-        if (page) {
-            page->addChild(*param);
-        }
-    }
-    {
-        auto param = desc.defineDoubleParam(kParamSpatialImpairmentFactor);
-        param->setLabel(kParamSpatialImpairmentFactorLabel);
-        param->setHint(kParamSpatialImpairmentFactorHint);
-        param->setDefault(kParamSpatialImpairmentFactorDefault);
         if (page) {
             page->addChild(*param);
         }
     }
     {
         IntParamDescriptor* param = desc.defineIntParam(kParamRandomSeed);
-        param->setLabel(kParamRandomSeedLabel);
-        param->setHint(kParamRandomSeedHint);
         param->setDefault(0);
         if (page) {
             page->addChild(*param);
-        }
-    }
-
-    PageParamDescriptor *pageAnal = desc.definePageParam("Analysis");
-    {
-        auto param = desc.defineInt2DParam(kParamLogCoords);
-        param->setLabel(kParamLogCoordsLabel);
-        param->setHint(kParamLogCoordsHint);
-        param->setDefault(-1, -1);
-        if (pageAnal) {
-            pageAnal->addChild(*param);
         }
     }
 }
