@@ -58,9 +58,9 @@ void PatchMatchPlugin::render(const RenderArguments &args)
             auto scale = std::pow(0.5, numLevels - level);
             srcImgSc.reset(srcImg->scale(scale));
             trgImgSc.reset(trgImg->scale(scale));
-            patchMatcher.reset(new PatchMatcher(srcImgSc.get(), trgImgSc.get(), patchSize));
+            patchMatcher.reset(new PatchMatcher(srcImgSc.get(), trgImgSc.get(), patchSize, this));
         } else {
-            patchMatcher.reset(new PatchMatcher(srcImg.get(), trgImg.get(), patchSize));
+            patchMatcher.reset(new PatchMatcher(srcImg.get(), trgImg.get(), patchSize, this));
         }
         patchMatcher->randomInitialise();
         if (translateMap.get()) {

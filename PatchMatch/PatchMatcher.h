@@ -26,7 +26,8 @@ public:
 
     OfxRectI getROD() const {return _rod;}
 
-    float* getDataAddress() {return _data.get();}
+    inline float* getDataAddress() {return _data.get();}
+    inline int getComponentCount() const {return _componentCount;}
 
     void operator/=(const OfxPointD& d);
 
@@ -58,6 +59,11 @@ private:
     auto_ptr<double> _patchWeights;
     auto_ptr<VectorGrid> _translateMap;
     auto_ptr<VectorGrid> _distances;
+
+    int _srcComps;
+    int _trgComps;
+    int _maxComps;
+    auto_ptr<float> _trgBilinearPix;
 
     double _distance(OfxPointI& p, OfxPointD& offset);
 };

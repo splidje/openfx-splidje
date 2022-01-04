@@ -53,7 +53,7 @@ void VectorGrid::toClip(Clip* clip, double t, const OfxRectI& window) const {
 }
 
 VectorGrid* VectorGrid::scale(double f) const {
-    auto vg = new VectorGrid(_rod * f, _componentCount);
+    auto vg = new VectorGrid(round(_rod * f), _componentCount);
     auto dataPtr = vg->_data.get();
     for (auto y = vg->_rod.y1; y < vg->_rod.y2; y++) {
         for (auto x = vg->_rod.x1; x < vg->_rod.x2; x++, dataPtr += _componentCount) {
@@ -131,6 +131,10 @@ PatchMatcher::PatchMatcher(const VectorGrid* src, const VectorGrid* trg, int pat
             *wPtr = pdf(x, s) * pdf(y, s);
         }
     }
+    _srcComps = _src->getComponentCount();
+    _trgComps = _trg->getComponentCount();
+    _maxComps = std::max(_srcComps, _trgComps);
+    _trgBilinearPix.reset(new float[_trgComps]);
 }
 
 void PatchMatcher::randomInitialise() {
@@ -181,4 +185,36 @@ void PatchMatcher::merge(const VectorGrid* mergeTranslateMap, double scale) {
 
 VectorGrid* PatchMatcher::releaseTranslateMap() {
     return _translateMap.release();
+}
+
+double PatchMatcher::_distance(OfxPointI& p, OfxPointD& offset) {
+    OfxPointI patchP;
+    auto m = (_patchSize - 1) / 2;
+    auto weightPtr = _patchWeights.get();
+    auto trgCentre = p + offset;
+    double dist = 0;
+    for (patchP.y = -m; patchP.y <= m; patchP.y++) {
+        for (patchP.x = -m; patchP.x <= m; patchP.x++, weightPtr++) {
+            auto srcP = p + patchP;
+            auto srcPixPtr = _src->getVectorAddressNearest(srcP);
+            auto trgP = trgCentre + patchP;
+            _trg->bilinear(trgP.x, trgP.y, _trgBilinearPix.get());
+            for (auto c=0; c < _maxComps; c++) {
+                float srcVal, trgVal;
+                if (c < _srcComps) {
+                    srcVal = srcPixPtr[c];
+                } else {
+                    srcVal = 0;
+                }
+                if (c < _trgComps) {
+                    trgVal = _trgBilinearPix.get()[c];
+                } else {
+                    trgVal = 0;
+                }
+                auto diff = trgVal - srcVal;
+                dist += (diff * diff) * *weightPtr;
+            }
+        }
+    }
+    return dist;
 }
