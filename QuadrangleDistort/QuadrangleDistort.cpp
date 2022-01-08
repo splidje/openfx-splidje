@@ -51,9 +51,20 @@ void QuadrangleDistort::rectIntersect(const OfxRectI* a, const OfxRectI* b, OfxR
 // Edge
 
 bool Edge::initialise() {
-    if (vect.x == 0 && vect.y == 0) {return false;}
+    if (
+        vect.x >= -QUADRANGLEDISTORT_DELTA
+        && vect.x <= QUADRANGLEDISTORT_DELTA
+        && vect.y >= -QUADRANGLEDISTORT_DELTA
+        && vect.y <= QUADRANGLEDISTORT_DELTA
+    ) {
+        isInitialised = false;
+        return false;
+    }
     length = sqrt(vectorMagSq(vect));
-    if (length == 0) {return false;}
+    if (length <= QUADRANGLEDISTORT_DELTA) {
+        isInitialised = false;
+        return false;
+    }
     OfxPointD tang;
     vectorRotate90(vect, &tang);
     vectorDivide(tang, length, &norm);
@@ -104,15 +115,35 @@ double QuadrangleDistort::calcInsideNess(const OfxPointD p, const Edge* cutEdge)
 
 // Quadrangle
 
-bool Quadrangle::initialise() {
+void Quadrangle::initialise() {
     Edge* edge = edges;
+    zeroEdgeCount = 0;
     for (int i=0; i < 4; i++, edge++) {
         vectorSubtract(
             edges[(i+1) % 4].p,
             edge->p,
             &edge->vect
         );
-        if (!edge->initialise()) {return false;}
+        if (!edge->initialise()) {
+            zeroEdgeCount++;
+        }
+    }
+}
+
+bool Quadrangle::isValid() {
+    if (zeroEdgeCount > 1) {
+        return false;
+    }
+    for (auto i=0; i < 4; i++) {
+        for (auto j=0; j < 2; j++) {
+            auto oppIndex = (i + 2 + j) % 4;
+            if (!edges[oppIndex].isInitialised) {
+                continue;
+            }
+            if (calcInsideNess(edges[i].p, &edges[oppIndex]) < 0) {
+                return false;
+            }
+        }
     }
     return true;
 }
@@ -127,6 +158,329 @@ void Quadrangle::bounds(OfxRectI *rect) {
         rect->y2 = std::max(rect->y2, (int)ceil(edges[i].p.y));
     }
 }
+
+void Quadrangle::fix(const std::set<int>* lockedIndices, std::set<int>* changedIndices) {
+    if (lockedIndices) {
+        assert(lockedIndices->size() <= 2);
+        if (lockedIndices->size() == 2) {
+            // must be adjacent
+            auto iter = lockedIndices->begin();
+            auto first = *iter;
+            iter++;
+            auto second = *iter;
+            assert((first ^ second) & 1 == 1);
+        }
+    }
+    if (changedIndices) {
+        changedIndices->clear();
+    }
+    for (auto i=0; i < 4; i++) {
+        if (lockedIndices && lockedIndices->find(i) != lockedIndices->end()) {
+            continue;
+        }
+        auto edgePtr = &edges[i];
+        for (auto j=0; j <= 1; j++) {
+            auto oppIndex = (i + 1 + j) % 4;
+            auto oppEdgePtr = &edges[oppIndex];
+            if (calcInsideNess(edgePtr->p, oppEdgePtr) < 0) {
+                auto adjEdgePtr = &edges[(oppIndex + 2) % 4];
+                auto crosses = adjEdgePtr->crosses(oppEdgePtr);
+                if (crosses >= 0 && crosses <= 1) {
+                    edgePtr->p.x = adjEdgePtr->p.x + adjEdgePtr->vect.x * crosses;
+                    edgePtr->p.y = adjEdgePtr->p.y + adjEdgePtr->vect.y * crosses;
+                } else if (j == 0) {
+                    edgePtr->p = edges[(i+3) % 4].p;
+                } else if (j == 1) {
+                    edgePtr->p = edges[(i+1) % 4].p;
+                }
+                if (changedIndices) {
+                    changedIndices->insert(i);
+                }
+                initialise();
+                break;
+            }
+        }
+    }
+    if (zeroEdgeCount > 1) {
+        OfxPointD implodeP;
+        if (lockedIndices && lockedIndices->size() > 0) {
+            implodeP = edges[*lockedIndices->begin()].p;
+        } else {
+            implodeP.x = 0;
+            implodeP.y = 0;
+            for (auto i=0; i < 4; i++) {
+                implodeP.x += edges[i].p.x;
+                implodeP.y += edges[i].p.y;
+            }
+            implodeP.x /= 4;
+            implodeP.y /= 4;
+        }
+        for (auto i=0; i < 4; i++) {
+            if (lockedIndices && lockedIndices->find(i) != lockedIndices->end()) {
+                continue;
+            }
+            edges[i].p = implodeP;
+        }
+        initialise();
+    }
+}
+
+void Quadrangle::setCurrentPixel(OfxPointD p) {
+    _cachedConsts = false;
+    _pixelP = p;
+    auto fromPPtr = _fromP;
+    for (int i=0; i < 4; i++, fromPPtr++) {
+        vectorSubtract(p, edges[i].p, fromPPtr);
+    }
+}
+
+double Quadrangle::calculatePixelIntersection(Polygon* poly) {
+    // Minimum valid polygon would be a triangle
+    if (zeroEdgeCount > 1) {
+        return 0;
+    }
+    // First sweep
+    double dists[4];
+    int entirelyInsideCount = 0;
+    for (int i=0; i < 4; i++) {
+        // a zero edge
+        if (!edges[i].isInitialised) {
+            entirelyInsideCount++;
+            continue;
+        }
+        dists[i] = vectorDotProduct(_fromP[i], edges[i].norm);
+        // definitely entirely outside
+        if (dists[i] <= -M_SQRT2) {
+            return 0;
+        }
+        // definitely entirely inside
+        if (dists[i] >= M_SQRT2) {
+            entirelyInsideCount++;
+        }
+    }
+    // definitely entirely inside all
+    if (entirelyInsideCount == 4){
+        return 1;
+    }
+
+    // Second sweep. Are all points around the pixel inside
+    // dot product: dp1 = x1*x2 + y1*y2
+    // add something to x1 and y1?
+    // dp2 = (x1 + a)*x2 + (y1 + b)*y2
+    // dp2 = x1*x2 + y1*y2 + a*x2 + b*y2
+    // dp2 = dp1 + a*x2 + b*y2
+    bool allInside = true;
+    for (int i=0; i < 4 && allInside; i++) {
+        if (!edges[i].isInitialised) {
+            continue;
+        }
+        for (int j=0; j < 4 && allInside; j++) {
+            allInside = (
+                dists[i]
+                + (j % 3 ? edges[i].norm.x : 0)
+                + (j >> 1 ? edges[i].norm.y: 0)
+            ) >= 0;
+        }
+    }
+    if (allInside) {
+        return 1;
+    }
+
+    // Cut up the pixel
+    Polygon polies[2];
+    polies[0].addPoint(_pixelP);
+    OfxPointD nextP;
+    // bottom right
+    nextP.x = _pixelP.x + 1;
+    nextP.y = _pixelP.y;
+    polies[0].addPoint(nextP);
+    // top right
+    nextP.y += 1;
+    polies[0].addPoint(nextP);
+    // top left
+    nextP.x = _pixelP.x;
+    polies[0].addPoint(nextP);
+    polies[0].close();
+    Polygon *inPoly = polies;
+    Polygon *outPoly = polies + 1;
+    for (int i=0; i < 4; i++) {
+        if (!edges[i].isInitialised) {
+            continue;
+        }
+        outPoly->clear();
+        inPoly->cut(&edges[i], outPoly);
+        std::swap(inPoly, outPoly);
+    }
+    if (poly) {
+        *poly = *inPoly;
+    }
+    return inPoly->area();
+}
+
+void Quadrangle::calculatePixelIdentity(OfxPointD* idP) {
+    if (!_cachedConsts) {
+        _cacheConsts();
+    }
+
+    double denom;
+
+    // https://www.wolframalpha.com/input/?i=solve+u*d+%2B+a*%28%28-h+%2B+u*-g%29+-+u*d%29+%3D+q%2C+u*D+%2B+a*%28%28-H+%2B+u*-G%29+-+u*D%29+%3D+Q%2C+for+u%2C+a
+    if (_denom1 < -QUADRANGLEDISTORT_DELTA || _denom1 > QUADRANGLEDISTORT_DELTA) {
+        // == X ==
+        idP->x = (
+            (
+                sqrt(
+                    pow(
+                        -_d * _H - _d * _Q + _D * _h + _D * _q - _g * _Q + _G * _q,
+                        2
+                    )
+                    - 4 * (_D * _g - _d * _G) * (_H * _q - _h * _Q)
+                )
+                + _d * _H + _d * _Q - _D * _h - _D * _q + _g * _Q - _G * _q
+            )
+            / _denom1
+        );
+
+        // == Y ==
+        // https://www.wolframalpha.com/input/?i=solve+v*-h+%2B+b*%28%28d+%2B+v*f%29+-+v*-h%29+%3D+q%2C+v*-H+%2B+b*%28%28D+%2B+v*F%29+-+v*-H%29+%3D+Q%2C+for+v%2C+b
+        if (_denom2 < -QUADRANGLEDISTORT_DELTA || _denom2 > QUADRANGLEDISTORT_DELTA) {
+            idP->y = (
+                (
+                    sqrt(
+                        pow(
+                            - _d * _H + _D * _h - _f * _Q + _F * _q - _h * _Q + _H * _q,
+                            2
+                        )
+                        - 4 * (_D * _q - _d * _Q) * (_F * _h - _f * _H)
+                    )
+                    + _d * _H - _D * _h + _f * _Q - _F * _q + _h * _Q - _H * _q
+                )
+                / _denom2
+            );
+        }
+        // f,F and h,H are parallel
+        else {
+            // (u[d,D] -> q,Q)'s component length in -h,-H's direction
+            // over the length of the line made by u([d,D]) -> [-h,-H] + u([-g,-G])
+            // that line:
+            // (-h + u*-g) - ud
+            // -h - ug - ud
+            // -h - u(g + d)
+            // result:
+            // ((q - ud)*-h + (Q - uD)*-H) / (<-h,-H length> * sqrt((-h - u(g + d))^2 + (-H - u(G + D))^2))
+            // (h(ud - q) + H(uD - Q)) / (<-h,-H length> * sqrt((-h - u(g + d))^2 + (-H - u(G + D))^2))
+            denom = (
+                edges[(3 + _orient) % 4].length
+                * sqrt(
+                    pow(-_h - idP->x * (_g + _d), 2)
+                    + pow(-_H - idP->x * (_G + _D), 2)
+                )
+            );
+            assert(denom != 0);
+            idP->y = (_h * (idP->x * _d - _q) + _H * (idP->x * _D - _Q)) / denom;
+        }
+    }
+    // d,D and g,G are parallel
+    else {
+        // == Y ==
+        // length of q,Q's component in d,D's normal's direction:
+        // (-Dq + dQ) / sqrt(d^2 + D^2)
+        // over length of f,F's component in d,D's normal's direction:
+        // (-D*f + d*F) / sqrt(d^2 + D^2)
+        // denoms cancel out:
+        // (-Dq + dQ) / (-Df + dF)
+        // (dQ - Dq) / (dF - Df)
+        // d,D not parallel with f,F
+        if (_denom3 < -QUADRANGLEDISTORT_DELTA || _denom3 > QUADRANGLEDISTORT_DELTA) {
+            idP->y = (_d * _Q - _D * _q) / _denom3;
+        }
+        // if parallel, it's crushed
+        else {
+            idP->y = 0.5;
+        }
+
+        // == X ==
+        // (v[-h,-H] -> q,Q)'s component length in d,D's direction
+        // over the length of the vector made by v([-h,-H]) -> [d,D] + v([f,F])
+        // that line:
+        // ((d + vf) - v*-h)
+        // d + v(f + h)
+        // result:
+        // (d(q - v*-h) + D(Q - v*-H)) / (<length of d,D> * sqrt((d + v(f + h))^2 + (D + v(F + H))^2))
+        // (d(q + vh) + D(Q + vH)) / (<length of d,D> * sqrt((d + v(f + h))^2 + (D + v(F + H))^2))
+        denom = (
+            edges[_orient].length
+            * sqrt(
+                pow(_d + idP->y * (_f + _h), 2)
+                + pow(_D + idP->y * (_F + _H), 2)
+            )
+        );
+        assert(denom != 0);
+        idP->x = (_d * (_q + idP->y * _h) + _D * (_Q + idP->y * _H)) / denom;
+    }
+
+    // fix orientation
+    if (!_orient) {
+        return;
+    }
+    auto y = idP->y;
+    if (_orient == 1) {
+        idP->y = idP->x;
+        idP->x = 1 - y;
+    } else if (_orient == 2) {
+        idP->y = 1 - y;
+        idP->x = 1 - idP->x;
+    } else if (_orient == 3) {
+        idP->y = 1 - idP->x;
+        idP->x = y;
+    }
+}
+
+void Quadrangle::_cacheConsts() {
+    assert(zeroEdgeCount <= 1);
+    _orient = 0;
+    // if we have a zero edge and it's not the 2nd,
+    // we'll need to reorient
+    if (zeroEdgeCount && edges[1].isInitialised) {
+        if (!edges[2].isInitialised) {
+            _orient = 1;
+        } else if (!edges[3].isInitialised) {
+            _orient = 2;
+        } else if (!edges[0].isInitialised) {
+            _orient = 3;
+        }
+    }
+    _e0 = edges[_orient].vect;
+    _e1 = edges[(1 + _orient) % 4].vect;
+    _e2 = edges[(2 + _orient) % 4].vect;
+    _e3 = edges[(3 + _orient) % 4].vect;
+    _d = _e0.x;
+    _D = _e0.y;
+    _f = _e1.x;
+    _F = _e1.y;
+    _g = _e2.x;
+    _G = _e2.y;
+    _h = _e3.x;
+    _H = _e3.y;
+    _q = _fromP[_orient].x;
+    _Q = _fromP[_orient].y;
+
+    // https://www.wolframalpha.com/input/?i=solve+u*d+%2B+a*%28%28-h+%2B+u*-g%29+-+u*d%29+%3D+q%2C+u*D+%2B+a*%28%28-H+%2B+u*-G%29+-+u*D%29+%3D+Q%2C+for+u%2C+a
+    _denom1 = 2 * (_D * _g - _d * _G);
+
+    // https://www.wolframalpha.com/input/?i=solve+v*-h+%2B+b*%28%28d+%2B+v*f%29+-+v*-h%29+%3D+q%2C+v*-H+%2B+b*%28%28D+%2B+v*F%29+-+v*-H%29+%3D+Q%2C+for+v%2C+b
+    _denom2 = 2 * (_F * _h - _f * _H);
+
+    // length of q,Q's component in d,D's normal's direction:
+    // (-Dq + dQ) / sqrt(d^2 + D^2)
+    // over length of f,F's component in d,D's normal's direction:
+    // (-D*f + d*F) / sqrt(d^2 + D^2)
+    // denoms cancel out:
+    // (-Dq + dQ) / (-Df + dF)
+    // (dQ - Dq) / (dF - Df)
+    _denom3 = _d * _F - _D * _f;
+}
+
 
 // Polygon
 
@@ -235,203 +589,8 @@ void Polygon::initialiseLastEdgeVect(OfxPointD toP) {
     }
 }
 
-// QuadranglePixel
 
-QuadranglePixel::QuadranglePixel(Quadrangle* quad, OfxPointD p)
-: quadrangle(quad), p(p) {
-    auto fromPPtr = _fromP;
-    for (int i=0; i < 4; i++, fromPPtr++) {
-        vectorSubtract(p, quadrangle->edges[i].p, fromPPtr);
-    }
-    calcIntersection();
-}
-
-void QuadranglePixel::calculateIdentityPoint(OfxPointD* idP) {
-    auto e0 = quadrangle->edges[0].vect;
-    auto e1 = quadrangle->edges[1].vect;
-    auto e2 = quadrangle->edges[2].vect;
-    auto e3 = quadrangle->edges[3].vect;
-    auto d = e0.x;
-    auto D = e0.y;
-    auto f = e1.x;
-    auto F = e1.y;
-    auto g = e2.x;
-    auto G = e2.y;
-    auto h = e3.x;
-    auto H = e3.y;
-    auto q = _fromP[0].x;
-    auto Q = _fromP[0].y;
-
-    double denom;
-
-    // https://www.wolframalpha.com/input/?i=solve+u*d+%2B+a*%28%28-h+%2B+u*-g%29+-+u*d%29+%3D+q%2C+u*D+%2B+a*%28%28-H+%2B+u*-G%29+-+u*D%29+%3D+Q%2C+for+u%2C+a
-    denom = 2 * (D * g - d * G);
-    if (denom < -QUADRANGLEDISTORT_DELTA || denom > QUADRANGLEDISTORT_DELTA) {
-        // == X ==
-        idP->x = (
-            (
-                sqrt(
-                    pow(
-                        -d * H - d * Q + D * h + D * q - g * Q + G * q,
-                        2
-                    )
-                    - 4 * (D * g - d * G) * (H * q - h * Q)
-                )
-                + d * H + d * Q - D * h - D * q + g * Q - G * q
-            )
-            / denom
-        );
-
-        // == Y ==
-        // https://www.wolframalpha.com/input/?i=solve+v*-h+%2B+b*%28%28d+%2B+v*f%29+-+v*-h%29+%3D+q%2C+v*-H+%2B+b*%28%28D+%2B+v*F%29+-+v*-H%29+%3D+Q%2C+for+v%2C+b
-        denom = 2 * (F * h - f * H);
-        if (denom < -QUADRANGLEDISTORT_DELTA || denom > QUADRANGLEDISTORT_DELTA) {
-            idP->y = (
-                (
-                    sqrt(
-                        pow(
-                            - d * H + D * h - f * Q + F * q - h * Q + H * q,
-                            2
-                        )
-                        - 4 * (D * q - d * Q) * (F * h - f * H)
-                    )
-                    + d * H - D * h + f * Q - F * q + h * Q - H * q
-                )
-                / denom
-            );
-        }
-        // f,F and h,H are parallel
-        else {
-            // (u[d,D] -> q,Q)'s component length in -h,-H's direction
-            // over the length of the line made by u([d,D]) -> [-h,-H] + u([-g,-G])
-            // that line:
-            // (-h + u*-g) - ud
-            // -h - ug - ud
-            // -h - u(g + d)
-            // result:
-            // ((q - ud)*-h + (Q - uD)*-H) / (<-h,-H length> * sqrt((-h - u(g + d))^2 + (-H - u(G + D))^2))
-            // (h(ud - q) + H(uD - Q)) / (<-h,-H length> * sqrt((-h - u(g + d))^2 + (-H - u(G + D))^2))
-            denom = (
-                quadrangle->edges[3].length
-                * sqrt(
-                    pow(-h - idP->x * (g + d), 2)
-                    + pow(-H - idP->x * (G + D), 2)
-                )
-            );
-            assert(denom != 0);
-            idP->y = (h * (idP->x * d - q) + H * (idP->x * D - Q)) / denom;
-        }
-    }
-    // d,D and g,G are parallel
-    else {
-        // == Y ==
-        // length of q,Q's component in d,D's normal's direction:
-        // (-Dq + dQ) / sqrt(d^2 + D^2)
-        // over length of f,F's component in d,D's normal's direction:
-        // (-D*f + d*F) / sqrt(d^2 + D^2)
-        // denoms cancel out:
-        // (-Dq + dQ) / (-Df + dF)
-        // (dQ - Dq) / (dF - Df)
-        denom = d * F - D * f;
-        // d,D not parallel with f,F
-        if (denom < -QUADRANGLEDISTORT_DELTA || denom > QUADRANGLEDISTORT_DELTA) {
-            idP->y = (d * Q - D * q) / denom;
-        }
-        // if parallel, it's crushed
-        else {
-            idP->y = 0.5;
-        }
-
-        // == X ==
-        // (v[-h,-H] -> q,Q)'s component length in d,D's direction
-        // over the length of the vector made by v([-h,-H]) -> [d,D] + v([f,F])
-        // that line:
-        // ((d + vf) - v*-h)
-        // d + v(f + h)
-        // result:
-        // (d(q - v*-h) + D(Q - v*-H)) / (<length of d,D> * sqrt((d + v(f + h))^2 + (D + v(F + H))^2))
-        // (d(q + vh) + D(Q + vH)) / (<length of d,D> * sqrt((d + v(f + h))^2 + (D + v(F + H))^2))
-        denom = (
-            quadrangle->edges[0].length
-            * sqrt(
-                pow(d + idP->y * (f + h), 2)
-                + pow(D + idP->y * (F + H), 2)
-            )
-        );
-        assert(denom != 0);
-        idP->x = (d * (q + idP->y * h) + D * (Q + idP->y * H)) / denom;
-    }
-}
-
-void QuadranglePixel::calcIntersection() {
-    // First sweep
-    double dists[4];
-    int entirelyInsideCount = 0;
-    for (int i=0; i < 4; i++) {
-        dists[i] = vectorDotProduct(_fromP[i], quadrangle->edges[i].norm);
-        // definitely entirely outside
-        if (dists[i] <= -M_SQRT2) {
-            intersection = 0;
-            return;
-        }
-        // definitely entirely inside
-        if (dists[i] >= M_SQRT2) {
-            entirelyInsideCount++;
-        }
-    }
-    // definitely entirely inside all
-    if (entirelyInsideCount == 4){
-        intersection = 1;
-        return;
-    }
-
-    // Second sweep. Are all points around the pixel inside
-    // dot product: dp1 = x1*x2 + y1*y2
-    // add something to x1 and y1?
-    // dp2 = (x1 + a)*x2 + (y1 + b)*y2
-    // dp2 = x1*x2 + y1*y2 + a*x2 + b*y2
-    // dp2 = dp1 + a*x2 + b*y2
-    bool allInside = true;
-    for (int i=0; i < 4 && allInside; i++) {
-        for (int j=1; j < 4 && allInside; j++) {
-            allInside = (
-                dists[i]
-                + (j % 3 ? quadrangle->edges[i].norm.x : 0)
-                + (j >> 1 ? quadrangle->edges[i].norm.y: 0)
-            ) >= 0;
-        }
-    }
-    if (allInside) {
-        intersection = 1;
-        return;
-    }
-
-    // Cut up the pixel
-    Polygon polies[2];
-    polies[0].addPoint(p);
-    OfxPointD nextP;
-    // bottom right
-    nextP.x = p.x + 1;
-    nextP.y = p.y;
-    polies[0].addPoint(nextP);
-    // top right
-    nextP.y += 1;
-    polies[0].addPoint(nextP);
-    // top left
-    nextP.x = p.x;
-    polies[0].addPoint(nextP);
-    polies[0].close();
-    Polygon *outPoly;
-    for (int i=0; i < 4; i++) {
-        outPoly = polies + 1 - (i % 2);
-        outPoly->clear();
-        polies[i % 2].cut(&quadrangle->edges[i], outPoly);
-    }
-    intersection = outPoly->area();
-    intersectionPoly = *outPoly;
-}
-
-void QuadrangleDistort::bilinear(double x, double y, Image* img, float* outPix, int componentCount) {
+void QuadrangleDistort::bilinear(double x, double y, Image* img, float* outPix, int componentCount, bool blackOutside) {
     auto floorX = floor(x);
     auto floorY = floor(y);
     double xWeights[2];
@@ -444,7 +603,15 @@ void QuadrangleDistort::bilinear(double x, double y, Image* img, float* outPix, 
     for (int c=0; c < componentCount; c++) {outPix[c] = 0;}
     for (int y=0; y < 2; y++) {
         for (int x=0; x < 2; x++) {
-            pix = (float*)img->getPixelAddressNearest(floorX + x, floorY + y);
+            if (blackOutside) {
+                pix = (float*)img->getPixelAddress(floorX + x, floorY + y);
+                if (!pix) {
+                    pix += componentCount;
+                    continue;
+                }
+            } else {
+                pix = (float*)img->getPixelAddressNearest(floorX + x, floorY + y);
+            }
             for (int c=0; c < componentCount; c++, pix++) {
                 outPix[c] += xWeights[x] * yWeights[y] * *pix;
             }

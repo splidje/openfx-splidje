@@ -1,4 +1,5 @@
 #include "ofxsImageEffect.h"
+#include <set>
 
 // our smallest distance for snapping and
 // dealing with rounding errors in calculations.
@@ -30,7 +31,7 @@ namespace QuadrangleDistort {
         OfxPointD vect;
         double length;
         OfxPointD norm;
-        bool isInitialised = false;
+        bool isInitialised;
 
         bool initialise();
         double crosses(const Edge* edge);
@@ -38,16 +39,6 @@ namespace QuadrangleDistort {
 
     double triangleArea(Edge* edges[2]);
     double calcInsideNess(const OfxPointD p, const Edge* cutEdge);
-
-    class Quadrangle {
-        public:
-
-        Edge edges[4];
-
-        bool initialise();
-
-        void bounds(OfxRectI *rect);
-    };
 
     class Polygon {
         public:
@@ -66,23 +57,52 @@ namespace QuadrangleDistort {
         void initialiseLastEdgeVect(OfxPointD toP);
     };
 
-    class QuadranglePixel {
+    class Quadrangle {
         public:
 
-        Quadrangle* quadrangle;
-        OfxPointD p;
-        double intersection;
-        Polygon intersectionPoly;
+        Edge edges[4];
+        int zeroEdgeCount;
 
-        QuadranglePixel(Quadrangle* quad, OfxPointD p);
-        void calculateIdentityPoint(OfxPointD* idP);
+        void initialise();
+
+        bool isValid();
+
+        void bounds(OfxRectI *rect);
+
+        void fix(const std::set<int>* lockedIndices, std::set<int>* changedIndices);
+
+        void setCurrentPixel(OfxPointD p);
+
+        double calculatePixelIntersection(Polygon* poly);
+
+        void calculatePixelIdentity(OfxPointD* idP);
 
         private:
 
-        void calcIntersection();
+        void _cacheConsts();
 
+        OfxPointD _pixelP;
         OfxPointD _fromP[4];
+        bool _cachedConsts;
+        int _orient;
+        OfxPointD _e0;
+        OfxPointD _e1;
+        OfxPointD _e2;
+        OfxPointD _e3;
+        double _d;
+        double _D;
+        double _f;
+        double _F;
+        double _g;
+        double _G;
+        double _h;
+        double _H;
+        double _q;
+        double _Q;
+        double _denom1;
+        double _denom2;
+        double _denom3;
     };
 
-    void bilinear(double x, double y, Image* img, float* outPix, int componentCount);
+    void bilinear(double x, double y, Image* img, float* outPix, int componentCount, bool blackOutside=false);
 }

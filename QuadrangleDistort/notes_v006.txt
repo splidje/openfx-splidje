@@ -1,0 +1,92 @@
+lines meet.
+x proportion on e, then on -g, line between those two points
+y proportion on -h, then on f, line between those two points
+where line crosses is q
+
+ue + a(-ug - h - ue) = q
+u(e(1 - a) - ag) - ah = q
+
+-vh + b(vf + e - -vh) = q
+v(h(b - 1) + bf) + be = q
+
+Sage maths solve:
+
+[
+	[
+		u == -1/2*((H + Q)*e + Q*g - E*h - (E + G)*q + sqrt(Q^2*g^2 + E^2*h^2 + (H^2 + 2*H*Q + Q^2)*e^2 + 2*(H*Q + Q^2)*e*g + (E^2 + 2*E*G + G^2)*q^2 + 2*(E*Q*g - (E*H + (E + 2*G)*Q)*e)*h - 2*(((E - G)*H + (E + G)*Q)*e + (2*E*H + (E + G)*Q)*g - (E^2 + E*G)*h)*q))/(G*e - E*g),
+		v == -1/2*(H*e + Q*f - (E - Q)*h - (F + H)*q - sqrt(H^2*e^2 - 2*H*Q*e*f + Q^2*f^2 + (E^2 - 2*E*Q + Q^2)*h^2 + (F^2 + 2*F*H + H^2)*q^2 - 2*((E*H - (2*F + H)*Q)*e + (E*Q - Q^2)*f)*h - 2*((F*H + H^2)*e - (2*E*H - (F + H)*Q)*f + (E*F - E*H + (F + H)*Q)*h)*q))/(H*f - F*h),
+		a == 1/2*((H - Q)*e - Q*g - E*h + (E + G)*q + sqrt(Q^2*g^2 + E^2*h^2 + (H^2 + 2*H*Q + Q^2)*e^2 + 2*(H*Q + Q^2)*e*g + (E^2 + 2*E*G + G^2)*q^2 + 2*(E*Q*g - (E*H + (E + 2*G)*Q)*e)*h - 2*(((E - G)*H + (E + G)*Q)*e + (2*E*H + (E + G)*Q)*g - (E^2 + E*G)*h)*q))/(H*e + H*g - (E + G)*h),
+		b == 1/2*(H*e - Q*f - (E + Q)*h + (F + H)*q - sqrt(H^2*e^2 - 2*H*Q*e*f + Q^2*f^2 + (E^2 - 2*E*Q + Q^2)*h^2 + (F^2 + 2*F*H + H^2)*q^2 - 2*((E*H - (2*F + H)*Q)*e + (E*Q - Q^2)*f)*h - 2*((F*H + H^2)*e - (2*E*H - (F + H)*Q)*f + (E*F - E*H + (F + H)*Q)*h)*q))/((F + H)*e - E*f - E*h)
+	],
+	[
+		u == -1/2*((H + Q)*e + Q*g - E*h - (E + G)*q + sqrt(Q^2*g^2 + E^2*h^2 + (H^2 + 2*H*Q + Q^2)*e^2 + 2*(H*Q + Q^2)*e*g + (E^2 + 2*E*G + G^2)*q^2 + 2*(E*Q*g - (E*H + (E + 2*G)*Q)*e)*h - 2*(((E - G)*H + (E + G)*Q)*e + (2*E*H + (E + G)*Q)*g - (E^2 + E*G)*h)*q))/(G*e - E*g),
+		v == -1/2*(H*e + Q*f - (E - Q)*h - (F + H)*q + sqrt(H^2*e^2 - 2*H*Q*e*f + Q^2*f^2 + (E^2 - 2*E*Q + Q^2)*h^2 + (F^2 + 2*F*H + H^2)*q^2 - 2*((E*H - (2*F + H)*Q)*e + (E*Q - Q^2)*f)*h - 2*((F*H + H^2)*e - (2*E*H - (F + H)*Q)*f + (E*F - E*H + (F + H)*Q)*h)*q))/(H*f - F*h),
+		a == 1/2*((H - Q)*e - Q*g - E*h + (E + G)*q + sqrt(Q^2*g^2 + E^2*h^2 + (H^2 + 2*H*Q + Q^2)*e^2 + 2*(H*Q + Q^2)*e*g + (E^2 + 2*E*G + G^2)*q^2 + 2*(E*Q*g - (E*H + (E + 2*G)*Q)*e)*h - 2*(((E - G)*H + (E + G)*Q)*e + (2*E*H + (E + G)*Q)*g - (E^2 + E*G)*h)*q))/(H*e + H*g - (E + G)*h),
+		b == 1/2*(H*e - Q*f - (E + Q)*h + (F + H)*q + sqrt(H^2*e^2 - 2*H*Q*e*f + Q^2*f^2 + (E^2 - 2*E*Q + Q^2)*h^2 + (F^2 + 2*F*H + H^2)*q^2 - 2*((E*H - (2*F + H)*Q)*e + (E*Q - Q^2)*f)*h - 2*((F*H + H^2)*e - (2*E*H - (F + H)*Q)*f + (E*F - E*H + (F + H)*Q)*h)*q))/((F + H)*e - E*f - E*h)
+	],
+	[
+		u == -1/2*((H + Q)*e + Q*g - E*h - (E + G)*q - sqrt(Q^2*g^2 + E^2*h^2 + (H^2 + 2*H*Q + Q^2)*e^2 + 2*(H*Q + Q^2)*e*g + (E^2 + 2*E*G + G^2)*q^2 + 2*(E*Q*g - (E*H + (E + 2*G)*Q)*e)*h - 2*(((E - G)*H + (E + G)*Q)*e + (2*E*H + (E + G)*Q)*g - (E^2 + E*G)*h)*q))/(G*e - E*g),
+		v == -1/2*(H*e + Q*f - (E - Q)*h - (F + H)*q - sqrt(H^2*e^2 - 2*H*Q*e*f + Q^2*f^2 + (E^2 - 2*E*Q + Q^2)*h^2 + (F^2 + 2*F*H + H^2)*q^2 - 2*((E*H - (2*F + H)*Q)*e + (E*Q - Q^2)*f)*h - 2*((F*H + H^2)*e - (2*E*H - (F + H)*Q)*f + (E*F - E*H + (F + H)*Q)*h)*q))/(H*f - F*h),
+		a == 1/2*((H - Q)*e - Q*g - E*h + (E + G)*q - sqrt(Q^2*g^2 + E^2*h^2 + (H^2 + 2*H*Q + Q^2)*e^2 + 2*(H*Q + Q^2)*e*g + (E^2 + 2*E*G + G^2)*q^2 + 2*(E*Q*g - (E*H + (E + 2*G)*Q)*e)*h - 2*(((E - G)*H + (E + G)*Q)*e + (2*E*H + (E + G)*Q)*g - (E^2 + E*G)*h)*q))/(H*e + H*g - (E + G)*h),
+		b == 1/2*(H*e - Q*f - (E + Q)*h + (F + H)*q - sqrt(H^2*e^2 - 2*H*Q*e*f + Q^2*f^2 + (E^2 - 2*E*Q + Q^2)*h^2 + (F^2 + 2*F*H + H^2)*q^2 - 2*((E*H - (2*F + H)*Q)*e + (E*Q - Q^2)*f)*h - 2*((F*H + H^2)*e - (2*E*H - (F + H)*Q)*f + (E*F - E*H + (F + H)*Q)*h)*q))/((F + H)*e - E*f - E*h)
+	],
+	[
+		u == -1/2*((H + Q)*e + Q*g - E*h - (E + G)*q - sqrt(Q^2*g^2 + E^2*h^2 + (H^2 + 2*H*Q + Q^2)*e^2 + 2*(H*Q + Q^2)*e*g + (E^2 + 2*E*G + G^2)*q^2 + 2*(E*Q*g - (E*H + (E + 2*G)*Q)*e)*h - 2*(((E - G)*H + (E + G)*Q)*e + (2*E*H + (E + G)*Q)*g - (E^2 + E*G)*h)*q))/(G*e - E*g),
+		v == -1/2*(H*e + Q*f - (E - Q)*h - (F + H)*q + sqrt(H^2*e^2 - 2*H*Q*e*f + Q^2*f^2 + (E^2 - 2*E*Q + Q^2)*h^2 + (F^2 + 2*F*H + H^2)*q^2 - 2*((E*H - (2*F + H)*Q)*e + (E*Q - Q^2)*f)*h - 2*((F*H + H^2)*e - (2*E*H - (F + H)*Q)*f + (E*F - E*H + (F + H)*Q)*h)*q))/(H*f - F*h),
+		a == 1/2*((H - Q)*e - Q*g - E*h + (E + G)*q - sqrt(Q^2*g^2 + E^2*h^2 + (H^2 + 2*H*Q + Q^2)*e^2 + 2*(H*Q + Q^2)*e*g + (E^2 + 2*E*G + G^2)*q^2 + 2*(E*Q*g - (E*H + (E + 2*G)*Q)*e)*h - 2*(((E - G)*H + (E + G)*Q)*e + (2*E*H + (E + G)*Q)*g - (E^2 + E*G)*h)*q))/(H*e + H*g - (E + G)*h),
+		b == 1/2*(H*e - Q*f - (E + Q)*h + (F + H)*q + sqrt(H^2*e^2 - 2*H*Q*e*f + Q^2*f^2 + (E^2 - 2*E*Q + Q^2)*h^2 + (F^2 + 2*F*H + H^2)*q^2 - 2*((E*H - (2*F + H)*Q)*e + (E*Q - Q^2)*f)*h - 2*((F*H + H^2)*e - (2*E*H - (F + H)*Q)*f + (E*F - E*H + (F + H)*Q)*h)*q))/((F + H)*e - E*f - E*h)
+	]
+]
+
+
+===
+
+step by step on wolfram alpha
+
+(changed e to d, cos of ... e)
+
+1.
+
+u*d*(1-a)-a*u*g-a*h=q, solve for a:
+
+a = (d*u - q) / (u*(d + g) + h)
+
+2.
+
+v*h*(b-1)+b*v*f+b*d=q, solve for b:
+
+b = (h*v + q) / (d + v*(f + h))
+
+3.
+
+u*D*(1-a)-a*u*G-a*H = Q, a = (d*u - q) / (u*(d + g) + h), solve for u
+
+https://www.wolframalpha.com/input/?i=u*D*%281-a%29-a*u*G-a*H+%3D+Q%2C+a+%3D+%28d*u+-+q%29+%2F+%28u*%28d+%2B+g%29+%2B+h%29%2C+solve+for+u
+
+== IGNORE THIS FOR A BIT ==
+
+4.
+
+v*H*(b-1)+b*v*F+b*D=Q, Q = (G*u*(q - d * u) + H*(q - d*u) + D*u*(g*u+h+q)) / (u*(d+g) + h), b = (h*v + q) / (d + v*(f + h)), solve for v:
+
+== END IGNORE ==
+
+
+----------------
+
+it's 2 pairs of simultaneous eq. One for getting u and a, one for v and b
+
+1.
+
+u*d*(1-a)-a*u*g-a*h=q, u*D*(1-a)-a*u*G-a*H=Q, solve for u, a:
+
+https://www.wolframalpha.com/input/?i=u*d*%281-a%29-a*u*g-a*h%3Dq%2C+u*D*%281-a%29-a*u*G-a*H%3DQ%2C+solve+for+u%2C+a
+
+2.
+
+v*h*(b-1)+b*v*f+b*d=q, v*H*(b-1)+b*v*F+b*D=Q, solve for v, b:
+
+https://www.wolframalpha.com/input/?i=v*h*%28b-1%29%2Bb*v*f%2Bb*d%3Dq%2C+v*H*%28b-1%29%2Bb*v*F%2Bb*D%3DQ%2C+solve+for+v%2C+b
+
+
+

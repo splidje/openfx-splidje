@@ -1,0 +1,25 @@
+a*p1x + b*p2x + c*p3x + d*p4x = x
+a*p1y + b*p2y + c*p3y + d*p4y = y
+
+d = (x - a*p1x - b*p2x - c*p3x) / p4x
+
+a*p1y + b*p2y + c*p3y + ((x - a*p1x - b*p2x - c*p3x) / p4x)*p4y = y
+
+a*p1y + b*p2y + c*p3y + (p4y*(x - a*p1x - b*p2x) / p4x)*p4y  - c*p3x*(p4y/p4x) = y
+
+c*p3y - c*p3x*(p4y/p4x) = y - a*p1y - b*p2y - (p4y*(x - a*p1x - b*p2x) / p4x)*p4y
+
+c = ((y - a*p1y - b*p2y - (p4y*(x - a*p1x - b*p2x) / p4x)*p4y) / (p3y - p3x*(p4y/p4x)))
+
+d = (x - a*p1x - b*p2x - ((y - a*p1y - b*p2y - (p4y*(x - a*p1x - b*p2x) / p4x)*p4y) / (p3y - p3x*(p4y/p4x)))*p3x) / p4x
+
+
+-----
+
+s = (p3y - p3x*(p4y/p4x))
+t = p4y^2 / p4x
+
+s * c = y - a*p1y - b*p2y - x * t - a*p1x*t - b*p2x*t
+
+
+

@@ -1,0 +1,52 @@
+norm1 = [-1/sqrt(2), 1/sqrt(2)]
+norm2 = [-1/sqrt(2), -1/sqrt(2)]
+
+p1 = [a, a]
+p2 = [1 - b, b]
+
+x = c * norm1x + p1x
+y = c * norm1y + p1y
+
+x = d * norm2x + p2x
+y = d * norm2y + p2y
+
+
+c = (x - p1x) / norm1x
+
+y = norm1y * (x - p1x) / norm1x + p1y
+
+norm1y * (x - p1x) / norm1x + p1y = d * norm2y + p2y
+d = (norm1y * (x - p1x) / norm1x + p1y - p2y) / norm2y
+
+x = norm2x * (norm1y * (x - p1x) / norm1x + p1y - p2y) / norm2y + p2x
+x = norm2x * norm1y * x / (norm2y*norm1x) - norm2x * norm1y * p1x / (norm2y*norm1x) + norm2x * (p1y - p2y) / norm2y + p2x
+(norm2y*norm1x) * x - norm2x * norm1y * x  = - (norm2y*norm1x) * (norm2x * norm1y * p1x / (norm2y*norm1x) + norm2x * (p1y - p2y) / norm2y + p2x)
+x * (norm2y*norm1x - norm2x * norm1y) = - (norm2y*norm1x) * (norm2x * norm1y * p1x / (norm2y*norm1x) + norm2x * (p1y - p2y) / norm2y + p2x)
+x = - (norm2y*norm1x / (norm2y*norm1x - norm2x * norm1y)) * (norm2x * norm1y * p1x / (norm2y*norm1x) + norm2x * (p1y - p2y) / norm2y + p2x)
+
+
+----
+
+y = norm1y * (x - p1x) / norm1x + p1y
+p1x * norm1y/norm1x - p1y = x * norm1y/norm1x - y
+
+a = norm1y/norm1x
+b = p1x * a - p1y
+
+c = norm2y/norm2x
+d = p2x * c - p2y
+
+
+a * x - y = b
+c * x - y = d
+
+
+y = a*x - b
+
+c * x - a*x + b = d
+(c - a) * x = d - b
+
+x = (d - b) / (c - a)
+y = a*x - b
+
+
