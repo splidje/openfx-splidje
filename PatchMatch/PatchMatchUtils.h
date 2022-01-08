@@ -64,6 +64,12 @@ inline OfxPointD operator*(const OfxPointI& p, double f) {
     return {p.x * f, p.y * f};
 }
 
+inline OfxPointD& operator/=(OfxPointD& p, double d) {
+    p.x /= 2;
+    p.y /= 2;
+    return p;
+}
+
 inline OfxPointI round(const OfxPointD& p) {
     return {(int)round(p.x), (int)round(p.y)};
 }

@@ -24,6 +24,8 @@ PatchMatchPlugin::PatchMatchPlugin(OfxImageEffectHandle handle)
     _endLevel = fetchIntParam(kParamEndLevel);
     _numIterations = fetchIntParam(kParamNumIterations);
     _randomSeed = fetchIntParam(kParamRandomSeed);
+    std::random_device rd;
+    randEng.reset(new std::default_random_engine(rd()));
 }
 
 void PatchMatchPlugin::getRegionsOfInterest(const RegionsOfInterestArguments& args, RegionOfInterestSetter &rois) {
@@ -39,7 +41,7 @@ void PatchMatchPlugin::render(const RenderArguments &args)
     auto_ptr<VectorGrid> trgImg(VectorGrid::fromClip(_trgClip, args.time));
     if (!trgImg.get()) {return;}
 
-    srand(_randomSeed->getValueAtTime(args.time));
+    randEng->seed(_randomSeed->getValueAtTime(args.time));
     auto numIterations = _numIterations->getValueAtTime(args.time);
     auto patchSize = _patchSize->getValueAtTime(args.time);
 

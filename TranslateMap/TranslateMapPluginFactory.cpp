@@ -52,6 +52,15 @@ void TranslateMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, C
     srcClip->addSupportedComponent(ePixelComponentAlpha);
     dstClip->setTemporalClipAccess(false);
     dstClip->setSupportsTiles(false);
+
+    PageParamDescriptor *page = desc.definePageParam("Controls");
+    {
+        auto param = desc.defineBooleanParam(kParamApproximate);
+        param->setDefault(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
 }
 
 ImageEffect* TranslateMapPluginFactory::createInstance(OfxImageEffectHandle handle, ContextEnum /*context*/)

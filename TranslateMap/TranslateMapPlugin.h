@@ -16,6 +16,8 @@ using namespace OFX;
 #define kSourceClip "Source"
 #define kTranslationsClip "Translations"
 
+#define kParamApproximate "approximate"
+
 #define MAX_CACHE_OUTPUTS 10
 
 
@@ -43,4 +45,5 @@ private:
     Clip* _srcClip;
     Clip* _transClip;
     Clip* _dstClip;
+    BooleanParam* _approximate;
 };

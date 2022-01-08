@@ -8,8 +8,8 @@ FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackPluginInteract.o\
 TriangleMaths.o\
 FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o\
 QuadrangleDistort.o\
+QuadrangleDistortPluginFactory.o QuadrangleDistortPlugin.o QuadrangleDistortPluginInteract.o\
 TranslateMapPluginFactory.o TranslateMapPlugin.o\
-CornerPinPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o
 #MeshWarp.o\
 
 SRCDIR = ..
@@ -29,8 +29,7 @@ $(SRCDIR)/TriangleMaths\
 $(SRCDIR)/MeshWarp\
 $(SRCDIR)/FaceTranslationMap\
 $(SRCDIR)/QuadrangleDistort\
-$(SRCDIR)/TranslateMap\
-$(SRCDIR)/CornerPin
+$(SRCDIR)/TranslateMap
 
 CXXFLAGS += `pkg-config --cflags dlib-1`
 LINKFLAGS += `pkg-config --libs dlib-1`

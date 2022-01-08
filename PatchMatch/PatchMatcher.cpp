@@ -146,17 +146,78 @@ void PatchMatcher::randomInitialise() {
     auto trgHeight = rectHeight(trgROD);
     OfxPointI p;
     OfxPointD offset;
+    std::uniform_real_distribution<float> distrX(0, trgWidth);
+    std::uniform_real_distribution<float> distrY(0, trgHeight);
     for (p.y = rod.y1; p.y < rod.y2; p.y++) {
         for (p.x = rod.x1; p.x < rod.x2; p.x++, dataPtr += 2, distPtr++) {
             if (_plugin->abort()) {return;}
-            dataPtr[0] = offset.x = rand() % trgWidth + trgROD.x1 - p.x;
-            dataPtr[1] = offset.y = rand() % trgHeight + trgROD.y1 - p.y;
+            dataPtr[0] = offset.x = distrX(*_plugin->randEng) + trgROD.x1 - p.x;
+            dataPtr[1] = offset.y = distrY(*_plugin->randEng) + trgROD.y1 - p.y;
             *distPtr = _distance(p, offset);
         }
     }
 }
 
 void PatchMatcher::iterate(int numIterations) {
+    for (auto i=0; i < numIterations; i++) {
+        OfxPointI p, adjP;
+        auto rod = _translateMap->getROD();
+        int beginX, beginY, endX, endY, step;
+        if (i % 2) {
+            step = -1;
+            beginX = rod.x2 - 1;
+            beginY = rod.y2 - 2;
+            endX = 0;
+            endY = 0;
+        } else {
+            step = 1;
+            beginX = 0;
+            beginY = 1;
+            endX = rod.x2;
+            endY = rod.y2;
+        }
+        for (p.y = beginY; p.y != endY; p.y += step) {
+            for (p.x = beginX; p.x != endX; p.x += step) {
+                adjP = {p.x - step, p.y};
+                _propagate(p, adjP);
+                adjP = {p.x, p.y - step};
+                _propagate(p, adjP);
+                _search(p);
+            }
+        }
+    }
+}
+
+void PatchMatcher::_propagate(OfxPointI& p, OfxPointI& candP) {
+    if (!insideRect(candP, _translateMap->getROD())) {return;}
+    auto candVPtr = _translateMap->getVectorAddress(candP);
+    OfxPointD offset = {candVPtr[0], candVPtr[1]};
+    _improve(p, offset);
+}
+
+void PatchMatcher::_search(OfxPointI& p) {
+    auto rod = _translateMap->getROD();
+    OfxPointD limits = {(double)rectWidth(rod), (double)rectHeight(rod)};
+    for (; limits.x >= 1 || limits.y >= 1; limits /= 2) {
+        std::uniform_real_distribution<float> distrX(-limits.x, limits.x);
+        std::uniform_real_distribution<float> distrY(-limits.y, limits.y);
+        OfxPointD offset{
+            distrX(*_plugin->randEng)
+            ,distrY(*_plugin->randEng)
+        };
+        _improve(p, offset);
+    }
+}
+
+void PatchMatcher::_improve(OfxPointI& p, OfxPointD& offset) {
+    auto distPtr = _distances->getVectorAddress(p);
+    auto dist = _distance(p, offset);
+    auto vPtr = _translateMap->getVectorAddress(p);
+    if (dist < *distPtr) {
+        vPtr[0] = offset.x;
+        vPtr[1] = offset.y;
+        *distPtr = dist;
+    }
 }
 
 void PatchMatcher::merge(const VectorGrid* mergeTranslateMap, double scale) {

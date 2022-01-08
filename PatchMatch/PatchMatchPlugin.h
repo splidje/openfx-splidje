@@ -4,6 +4,7 @@
 #include "ofxsImageEffect.h"
 #include "ofxsMacros.h"
 #include <iostream>
+#include <random>
 
 using namespace OFX;
 
@@ -37,6 +38,8 @@ public:
     PatchMatchPlugin(OfxImageEffectHandle handle);
 
     int calculateNumLevelsAtTime(double time);
+
+    auto_ptr<std::default_random_engine> randEng;
 
 private:
     virtual void getRegionsOfInterest(const RegionsOfInterestArguments& args, RegionOfInterestSetter &rois) OVERRIDE FINAL;
