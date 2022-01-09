@@ -16,35 +16,7 @@ using namespace OFX;
 #define kSourceClip "Source"
 #define kOffsetsClip "Offsets"
 
-#define kParamIterateTemporally "iterateTemporally"
-#define kParamIterateTemporallyLabel "Iterate Temporally"
-#define kParamIterateTemporallyHint "Iterate Temporally"
-
-#define kParamReferenceFrame "referenceFrame"
-#define kParamReferenceFrameLabel "Reference Frame"
-#define kParamReferenceFrameHint "Reference Frame"
-
-#define MAX_CACHE_OUTPUTS 10
-
-
-class CachedOutput {
-public:
-    bool inCache = false;
-    double time;
-    OfxRectI rod;
-    int components;
-    auto_ptr<ImageMemory> imgMem;
-    void refresh(double t, OfxRectI newROD, int comps) {
-        time = t;
-        components = comps;
-        rod = newROD;
-        auto width = newROD.x2 - newROD.x1;
-        auto height = newROD.y2 - newROD.y1;
-        imgMem.reset(
-            new ImageMemory(width * height * comps * sizeof(float))
-        );
-    }
-};
+#define kParamBlackOutside "blackOutside"
 
 
 class OffsetMapPlugin : public ImageEffect
@@ -53,9 +25,10 @@ public:
     OffsetMapPlugin(OfxImageEffectHandle handle);
 
 private:
-    /* Override the render */
-    virtual void render(const OFX::RenderArguments &args) OVERRIDE FINAL;
-    
+    virtual bool getRegionOfDefinition(const RegionOfDefinitionArguments &args, OfxRectD &rod) OVERRIDE FINAL;
+
+    virtual void getClipPreferences(ClipPreferencesSetter &clipPreferences) OVERRIDE FINAL;
+
     virtual bool isIdentity(const IsIdentityArguments &args, Clip * &identityClip, double &identityTime
 #ifdef OFX_EXTENSIONS_NUKE
     , int& view
@@ -63,22 +36,14 @@ private:
 #endif
     ) OVERRIDE FINAL;
 
-    virtual void getClipPreferences(ClipPreferencesSetter &clipPreferences) OVERRIDE FINAL;
+    virtual void getRegionsOfInterest(const RegionsOfInterestArguments &args, RegionOfInterestSetter &rois) OVERRIDE FINAL;
 
-    virtual void getFramesNeeded(const FramesNeededArguments &args, FramesNeededSetter &frames) OVERRIDE FINAL;
-
-    CachedOutput* getOutput(double t, OfxPointD renderScale);
+    /* Override the render */
+    virtual void render(const RenderArguments &args) OVERRIDE FINAL;
 
 private:
     Clip* _srcClip;
     Clip* _offClip;
     Clip* _dstClip;
-    BooleanParam* _iterateTemporally;
-    IntParam* _referenceFrame;
-
-    bool _haveLastRenderArgs = false;
-    RenderArguments _lastRenderArgs;
-    int _nextCacheIndex = 0;
-    CachedOutput _cachedOutputs[MAX_CACHE_OUTPUTS];
-    std::map<double, CachedOutput*> _cachedOutputByTime;
+    BooleanParam* _blackOutside;
 };

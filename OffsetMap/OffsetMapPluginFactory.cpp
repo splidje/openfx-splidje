@@ -19,12 +19,12 @@ void OffsetMapPluginFactory::describe(ImageEffectDescriptor &desc)
     desc.setHostFrameThreading(false);
     desc.setSupportsMultiResolution(true);
     desc.setSupportsTiles(true);
-    desc.setTemporalClipAccess(true);
+    desc.setTemporalClipAccess(false);
     desc.setRenderTwiceAlways(false);
     desc.setSupportsMultipleClipPARs(true);
     desc.setSupportsMultipleClipDepths(false);
     desc.setRenderThreadSafety(eRenderInstanceSafe);
-    desc.setSequentialRender(true);
+    desc.setSequentialRender(false);
 }
 
 void OffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, ContextEnum context)
@@ -32,7 +32,8 @@ void OffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, Cont
     // create the mandated offsets clip
     ClipDescriptor *offClip = desc.defineClip(kOffsetsClip);
     offClip->addSupportedComponent(ePixelComponentRGB);
-    offClip->setTemporalClipAccess(true);
+    offClip->addSupportedComponent(ePixelComponentAlpha);
+    offClip->setTemporalClipAccess(false);
     offClip->setSupportsTiles(true);
     offClip->setIsMask(false);
 
@@ -41,35 +42,33 @@ void OffsetMapPluginFactory::describeInContext(ImageEffectDescriptor &desc, Cont
     srcClip->addSupportedComponent(ePixelComponentRGBA);
     srcClip->addSupportedComponent(ePixelComponentRGB);
     srcClip->addSupportedComponent(ePixelComponentAlpha);
-    srcClip->setTemporalClipAccess(true);
+#ifdef OFX_EXTENSIONS_NATRON
+    srcClip->addSupportedComponent(ePixelComponentXY);
+#endif
+    srcClip->setTemporalClipAccess(false);
     srcClip->setSupportsTiles(true);
     srcClip->setIsMask(false);
 
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
-    srcClip->addSupportedComponent(ePixelComponentRGB);
+    dstClip->addSupportedComponent(ePixelComponentRGB);
     dstClip->addSupportedComponent(ePixelComponentRGBA);
-    srcClip->addSupportedComponent(ePixelComponentAlpha);
-    dstClip->setTemporalClipAccess(true);
+    dstClip->addSupportedComponent(ePixelComponentAlpha);
+#ifdef OFX_EXTENSIONS_NATRON
+    dstClip->addSupportedComponent(ePixelComponentXY);
+#endif
+    dstClip->setTemporalClipAccess(false);
     dstClip->setSupportsTiles(true);
 
-    PageParamDescriptor *page = desc.definePageParam("Controls");
+    // Controls
     {
-        auto param = desc.defineBooleanParam(kParamIterateTemporally);
-        param->setLabel(kParamIterateTemporallyLabel);
-        param->setHint(kParamIterateTemporallyHint);
-        param->setDefault(false);
-        if (page) {
-            page->addChild(*param);
-        }
-    }
-    {
-        auto param = desc.defineIntParam(kParamReferenceFrame);
-        param->setLabel(kParamReferenceFrameLabel);
-        param->setHint(kParamReferenceFrameHint);
-        param->setDefault(1);
-        if (page) {
-            page->addChild(*param);
+        auto page = desc.definePageParam("Controls");
+        {
+            auto param = desc.defineBooleanParam(kParamBlackOutside);
+            param->setDefault(true);
+            if (page) {
+                page->addChild(*param);
+            }
         }
     }
 }
