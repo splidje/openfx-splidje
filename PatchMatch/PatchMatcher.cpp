@@ -123,12 +123,12 @@ PatchMatcher::PatchMatcher(const VectorGrid* src, const VectorGrid* trg, int pat
     _distances.reset(new VectorGrid(src->getROD(), 1));
     _patchWeights.reset(new double[_patchSize * _patchSize]);
     auto m = (_patchSize - 1) / 2;
-    auto s = sqrt(2 * (2*m + 1) * m * (m + 1) / (6 * (double)_patchSize));
+    // auto s = sqrt(2 * (2*m + 1) * m * (m + 1) / (6 * (double)_patchSize));
     auto wPtr = _patchWeights.get();
     for (auto y = -m; y <= m; y++) {
         if (_plugin->abort()) {return;}
         for (auto x = -m; x <= m; x++, wPtr++) {
-            *wPtr = pdf(x, s) * pdf(y, s);
+            *wPtr = pdf(x, 1) * pdf(y, 1);
         }
     }
     _srcComps = _src->getComponentCount();
@@ -159,6 +159,7 @@ void PatchMatcher::randomInitialise() {
 }
 
 void PatchMatcher::iterate(int numIterations) {
+    OfxPointD offset;
     for (auto i=0; i < numIterations; i++) {
         OfxPointI p, adjP;
         auto rod = _translateMap->getROD();
@@ -179,45 +180,47 @@ void PatchMatcher::iterate(int numIterations) {
         for (p.y = beginY; p.y != endY; p.y += step) {
             for (p.x = beginX; p.x != endX; p.x += step) {
                 adjP = {p.x - step, p.y};
-                _propagate(p, adjP);
+                _propagate(p, adjP, &offset);
                 adjP = {p.x, p.y - step};
-                _propagate(p, adjP);
-                _search(p);
+                _propagate(p, adjP, &offset);
+                _search(p, &offset);
             }
         }
     }
 }
 
-void PatchMatcher::_propagate(OfxPointI& p, OfxPointI& candP) {
+void PatchMatcher::_propagate(OfxPointI& p, OfxPointI& candP, OfxPointD* offset) {
     if (!insideRect(candP, _translateMap->getROD())) {return;}
     auto candVPtr = _translateMap->getVectorAddress(candP);
-    OfxPointD offset = {candVPtr[0], candVPtr[1]};
-    _improve(p, offset);
+    OfxPointD candOffset = {candVPtr[0], candVPtr[1]};
+    _improve(p, candOffset, offset);
 }
 
-void PatchMatcher::_search(OfxPointI& p) {
+void PatchMatcher::_search(OfxPointI& p, OfxPointD* offset) {
     auto rod = _translateMap->getROD();
     OfxPointD limits = {(double)rectWidth(rod), (double)rectHeight(rod)};
     for (; limits.x >= 1 || limits.y >= 1; limits /= 2) {
         std::uniform_real_distribution<float> distrX(-limits.x, limits.x);
         std::uniform_real_distribution<float> distrY(-limits.y, limits.y);
-        OfxPointD offset{
-            distrX(*_plugin->randEng)
-            ,distrY(*_plugin->randEng)
+        OfxPointD candOffset{
+            offset->x + distrX(*_plugin->randEng)
+            ,offset->y + distrY(*_plugin->randEng)
         };
-        _improve(p, offset);
+        _improve(p, candOffset, offset);
     }
 }
 
-void PatchMatcher::_improve(OfxPointI& p, OfxPointD& offset) {
+void PatchMatcher::_improve(OfxPointI& p, OfxPointD& candOffset, OfxPointD* offset) {
     auto distPtr = _distances->getVectorAddress(p);
-    auto dist = _distance(p, offset);
+    auto dist = _distance(p, candOffset);
     auto vPtr = _translateMap->getVectorAddress(p);
     if (dist < *distPtr) {
-        vPtr[0] = offset.x;
-        vPtr[1] = offset.y;
+        vPtr[0] = candOffset.x;
+        vPtr[1] = candOffset.y;
         *distPtr = dist;
     }
+    offset->x = vPtr[0];
+    offset->y = vPtr[1];
 }
 
 void PatchMatcher::merge(const VectorGrid* mergeTranslateMap, double scale) {

@@ -66,9 +66,9 @@ private:
     auto_ptr<float> _trgBilinearPix;
 
     double _distance(OfxPointI& p, OfxPointD& offset);
-    void _propagate(OfxPointI& p, OfxPointI& candP);
-    void _search(OfxPointI& p);
-    void _improve(OfxPointI& p, OfxPointD& offset);
+    void _propagate(OfxPointI& p, OfxPointI& candP, OfxPointD* offset);
+    void _search(OfxPointI& p, OfxPointD* offset);
+    void _improve(OfxPointI& p, OfxPointD& candOffset, OfxPointD* offset);
 };
 
 #endif // def PATCHMATCHER_H
