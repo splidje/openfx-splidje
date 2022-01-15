@@ -72,7 +72,7 @@ void PatchMatchPluginFactory::describeInContext(ImageEffectDescriptor &desc, Con
     }
     {
         IntParamDescriptor* param = desc.defineIntParam(kParamStartLevel);
-        param->setDefault(1);
+        param->setDefault(10);
         param->setDisplayRange(1, 10);
         if (page) {
             page->addChild(*param);

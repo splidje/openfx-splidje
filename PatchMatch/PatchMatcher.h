@@ -22,7 +22,7 @@ public:
     float* getVectorAddress(const OfxPointI& p) const;
     float* getVectorAddressNearest(const OfxPointI& p) const;
 
-    void bilinear(double x, double y, float* outPix) const;
+    void bilinear(double x, double y, float* outPix, bool blackOutside=true) const;
 
     OfxRectI getROD() const {return _rod;}
 
@@ -44,31 +44,42 @@ private:
 
 class PatchMatcher {
 public:
-    PatchMatcher(const VectorGrid* src, const VectorGrid* trg, int patchSize, const PatchMatchPlugin* plugin);
+    PatchMatcher(const VectorGrid* src, const VectorGrid* trg, int patchSize, PatchMatchPlugin* plugin);
 
     void randomInitialise();
     void iterate(int numIterations);
     void merge(const VectorGrid* mergeTranslateMap, double scale);
-    VectorGrid* releaseTranslateMap();
+    VectorGrid* releaseOffsetMap();
 
 private:
     const VectorGrid* _src;
     const VectorGrid* _trg;
+    OfxRectI _trgROD;
+    int _trgWidth;
+    int _trgHeight;
     const int _patchSize;
-    const PatchMatchPlugin* _plugin;
+    PatchMatchPlugin* _plugin;
     auto_ptr<double> _patchWeights;
-    auto_ptr<VectorGrid> _translateMap;
+    auto_ptr<VectorGrid> _offsetMap;
     auto_ptr<VectorGrid> _distances;
 
     int _srcComps;
     int _trgComps;
     int _maxComps;
-    auto_ptr<float> _trgBilinearPix;
+    auto_ptr<float> _srcBilinearPix;
+    int _currentIteration;
+    auto_ptr<int> _lastChange;
+    OfxPointI _currentPatchP;
+    auto_ptr<float> _currentPatch;
 
-    double _distance(OfxPointI& p, OfxPointD& offset);
-    void _propagate(OfxPointI& p, OfxPointI& candP, OfxPointD* offset);
-    void _search(OfxPointI& p, OfxPointD* offset);
-    void _improve(OfxPointI& p, OfxPointD& candOffset, OfxPointD* offset);
+    double _distance(const OfxPointD& offset, double maxDistance=-1);
+    void _propagate(const OfxPointI& candP, OfxPointD* offset);
+    void _search(OfxPointD* offset);
+    void _improve(const OfxPointD& candOffset, OfxPointD* offset);
+    void _loadCurrentPatch();
+    inline int* _getLastChangePtr(const OfxPointI& p) {
+        return _lastChange.get() + (p.y - _trgROD.y1) * _trgWidth + (p.x - _trgROD.x1);
+    }
 };
 
 #endif // def PATCHMATCHER_H

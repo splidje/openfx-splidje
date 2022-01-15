@@ -30,7 +30,6 @@ PatchMatchPlugin::PatchMatchPlugin(OfxImageEffectHandle handle)
 
 void PatchMatchPlugin::getRegionsOfInterest(const RegionsOfInterestArguments& args, RegionOfInterestSetter &rois) {
     rois.setRegionOfInterest(*_srcClip, _srcClip->getRegionOfDefinition(args.time) * args.renderScale);
-    rois.setRegionOfInterest(*_trgClip, _trgClip->getRegionOfDefinition(args.time) * args.renderScale);
 }
 
 // the overridden render function
@@ -51,30 +50,32 @@ void PatchMatchPlugin::render(const RenderArguments &args)
     auto_ptr<VectorGrid> srcImgSc;
     auto_ptr<VectorGrid> trgImgSc;
     auto_ptr<PatchMatcher> patchMatcher;
-    auto_ptr<VectorGrid> translateMap;
+    auto_ptr<VectorGrid> offsetMap;
     for (auto level=startLevel; level <= endLevel; level++) {
         if (patchMatcher.get()) {
-            translateMap.reset(patchMatcher->releaseTranslateMap());
+            offsetMap.reset(patchMatcher->releaseOffsetMap());
         }
         if (level != numLevels) {
             auto scale = std::pow(0.5, numLevels - level);
             srcImgSc.reset(srcImg->scale(scale));
+            if (!srcImgSc.get()) {continue;}
             trgImgSc.reset(trgImg->scale(scale));
+            if (!trgImgSc.get()) {continue;}
             patchMatcher.reset(new PatchMatcher(srcImgSc.get(), trgImgSc.get(), patchSize, this));
         } else {
             patchMatcher.reset(new PatchMatcher(srcImg.get(), trgImg.get(), patchSize, this));
         }
         patchMatcher->randomInitialise();
-        if (translateMap.get()) {
+        if (offsetMap.get()) {
             patchMatcher->iterate(std::min(2, numIterations));
-            patchMatcher->merge(translateMap.get(), 2);
+            patchMatcher->merge(offsetMap.get(), 2);
         }
     }
     patchMatcher->iterate(numIterations);
-    translateMap.reset(patchMatcher->releaseTranslateMap());
-    *translateMap /= args.renderScale;
+    offsetMap.reset(patchMatcher->releaseOffsetMap());
+    *offsetMap /= args.renderScale;
 
-    translateMap->toClip(_dstClip, args.time, args.renderWindow);
+    offsetMap->toClip(_dstClip, args.time, args.renderWindow);
 }
 
 bool PatchMatchPlugin::isIdentity(const IsIdentityArguments &args, 

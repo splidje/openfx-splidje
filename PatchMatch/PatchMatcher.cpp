@@ -53,11 +53,15 @@ void VectorGrid::toClip(Clip* clip, double t, const OfxRectI& window) const {
 }
 
 VectorGrid* VectorGrid::scale(double f) const {
-    auto vg = new VectorGrid(round(_rod * f), _componentCount);
+    auto newROD = round(_rod * f);
+    if (rectWidth(newROD) == 0 || rectHeight(newROD) == 0) {
+        return NULL;
+    }
+    auto vg = new VectorGrid(newROD, _componentCount);
     auto dataPtr = vg->_data.get();
     for (auto y = vg->_rod.y1; y < vg->_rod.y2; y++) {
         for (auto x = vg->_rod.x1; x < vg->_rod.x2; x++, dataPtr += _componentCount) {
-            bilinear(x / f, y / f, dataPtr);
+            bilinear(x / f, y / f, dataPtr, false);
         }
     }
     return vg;
@@ -82,7 +86,7 @@ float* VectorGrid::getVectorAddressNearest(const OfxPointI& p) const {
     return _getVectorAddress(insideP);
 }
 
-void VectorGrid::bilinear(double x, double y, float* outPix) const {
+void VectorGrid::bilinear(double x, double y, float* outPix, bool blackOutside) const {
     auto floorX = (int)floor(x);
     auto floorY = (int)floor(y);
     double xWeights[2];
@@ -91,12 +95,18 @@ void VectorGrid::bilinear(double x, double y, float* outPix) const {
     double yWeights[2];
     yWeights[1] = y - floorY;
     yWeights[0] = 1 - yWeights[1];
+    float* dataPtr;
     for (int c=0; c < _componentCount; c++) {outPix[c] = 0;}
-    for (auto y=0; y < 2; y++) {
-        for (auto x=0; x < 2; x++) {
-            auto dataPtr = getVectorAddressNearest({floorX + x, floorY + y});
+    for (auto bY=0; bY < 2; bY++) {
+        for (auto bX=0; bX < 2; bX++) {
+            if (blackOutside) {
+                dataPtr = getVectorAddress({floorX + bX, floorY + bY});
+                if (!dataPtr) {continue;}
+            } else {
+                dataPtr = getVectorAddressNearest({floorX + bX, floorY + bY});
+            }
             for (int c=0; c < _componentCount; c++, dataPtr++) {
-                outPix[c] += xWeights[x] * yWeights[y] * *dataPtr;
+                outPix[c] += xWeights[bX] * yWeights[bY] * *dataPtr;
             }
         }
     }
@@ -116,11 +126,23 @@ inline double pdf(double x, double s) {
     return exp(-pow(x / s, 2) / 2) / (s * sqrt(2 * M_PI));
 }
 
-PatchMatcher::PatchMatcher(const VectorGrid* src, const VectorGrid* trg, int patchSize, const PatchMatchPlugin* plugin)
+PatchMatcher::PatchMatcher(const VectorGrid* src, const VectorGrid* trg, int patchSize, PatchMatchPlugin* plugin)
     : _src(src), _trg(trg), _patchSize(patchSize), _plugin(plugin)
 {
-    _translateMap.reset(new VectorGrid(src->getROD(), 2));
-    _distances.reset(new VectorGrid(src->getROD(), 1));
+    _trgROD = trg->getROD();
+    _trgWidth = rectWidth(_trgROD);
+    _trgHeight = rectHeight(_trgROD);
+    _offsetMap.reset(new VectorGrid(_trgROD, 2));
+    _distances.reset(new VectorGrid(_trgROD, 1));
+    _lastChange.reset(new int[_trgWidth * _trgHeight]);
+    _srcComps = _src->getComponentCount();
+    _trgComps = _trg->getComponentCount();
+    _maxComps = std::max(_srcComps, _trgComps);
+    _srcBilinearPix.reset(new float[_maxComps]);
+    for (auto c=0; c < _maxComps; c++) {
+        _srcBilinearPix.get()[c] = 0;
+    }
+    _currentPatch.reset(new float[_patchSize * _patchSize * _maxComps]);
     _patchWeights.reset(new double[_patchSize * _patchSize]);
     auto m = (_patchSize - 1) / 2;
     // auto s = sqrt(2 * (2*m + 1) * m * (m + 1) / (6 * (double)_patchSize));
@@ -131,152 +153,175 @@ PatchMatcher::PatchMatcher(const VectorGrid* src, const VectorGrid* trg, int pat
             *wPtr = pdf(x, 1) * pdf(y, 1);
         }
     }
-    _srcComps = _src->getComponentCount();
-    _trgComps = _trg->getComponentCount();
-    _maxComps = std::max(_srcComps, _trgComps);
-    _trgBilinearPix.reset(new float[_trgComps]);
 }
 
 void PatchMatcher::randomInitialise() {
-    auto dataPtr = _translateMap->getDataAddress();
+    auto dataPtr = _offsetMap->getDataAddress();
     auto distPtr = _distances->getDataAddress();
-    auto rod = _translateMap->getROD();
-    auto trgROD = _trg->getROD();
-    auto trgWidth = rectWidth(trgROD);
-    auto trgHeight = rectHeight(trgROD);
-    OfxPointI p;
+    auto lastChangePtr = _lastChange.get();
+    auto srcROD = _src->getROD();
+    auto srcWidth = rectWidth(srcROD);
+    auto srcHeight = rectHeight(srcROD);
     OfxPointD offset;
-    std::uniform_real_distribution<float> distrX(0, trgWidth);
-    std::uniform_real_distribution<float> distrY(0, trgHeight);
-    for (p.y = rod.y1; p.y < rod.y2; p.y++) {
-        for (p.x = rod.x1; p.x < rod.x2; p.x++, dataPtr += 2, distPtr++) {
+    std::uniform_real_distribution<float> distrX(0, srcWidth);
+    std::uniform_real_distribution<float> distrY(0, srcHeight);
+    for (_currentPatchP.y = _trgROD.y1; _currentPatchP.y < _trgROD.y2; _currentPatchP.y++) {
+        for (_currentPatchP.x = _trgROD.x1; _currentPatchP.x < _trgROD.x2;
+            _currentPatchP.x++, dataPtr += 2, distPtr++, lastChangePtr++)
+        {
             if (_plugin->abort()) {return;}
-            dataPtr[0] = offset.x = distrX(*_plugin->randEng) + trgROD.x1 - p.x;
-            dataPtr[1] = offset.y = distrY(*_plugin->randEng) + trgROD.y1 - p.y;
-            *distPtr = _distance(p, offset);
+            _loadCurrentPatch();
+            dataPtr[0] = offset.x = distrX(*_plugin->randEng) + srcROD.x1 - _currentPatchP.x;
+            dataPtr[1] = offset.y = distrY(*_plugin->randEng) + srcROD.y1 - _currentPatchP.y;
+            *distPtr = _distance(offset);
+            *lastChangePtr = 0;
         }
     }
 }
 
 void PatchMatcher::iterate(int numIterations) {
     OfxPointD offset;
-    for (auto i=0; i < numIterations; i++) {
-        OfxPointI p, adjP;
-        auto rod = _translateMap->getROD();
+    for (_currentIteration=0; _currentIteration < numIterations; _currentIteration++) {
+        OfxPointI adjP;
         int beginX, beginY, endX, endY, step;
-        if (i % 2) {
+        if (_currentIteration % 2) {
             step = -1;
-            beginX = rod.x2 - 1;
-            beginY = rod.y2 - 2;
+            beginX = _trgROD.x2 - 1;
+            beginY = _trgROD.y2 - 2;
             endX = 0;
             endY = 0;
         } else {
             step = 1;
             beginX = 0;
-            beginY = 1;
-            endX = rod.x2;
-            endY = rod.y2;
+            beginY = 0;
+            endX = _trgROD.x2;
+            endY = _trgROD.y2;
         }
-        for (p.y = beginY; p.y != endY; p.y += step) {
-            for (p.x = beginX; p.x != endX; p.x += step) {
-                adjP = {p.x - step, p.y};
-                _propagate(p, adjP, &offset);
-                adjP = {p.x, p.y - step};
-                _propagate(p, adjP, &offset);
-                _search(p, &offset);
+        for (_currentPatchP.y = beginY; _currentPatchP.y != endY; _currentPatchP.y += step) {
+            for (_currentPatchP.x = beginX; _currentPatchP.x != endX; _currentPatchP.x += step) {
+                auto vPtr = _offsetMap->getVectorAddress(_currentPatchP);
+                offset = {vPtr[0], vPtr[1]};
+                _loadCurrentPatch();
+                adjP = {_currentPatchP.x - step, _currentPatchP.y};
+                _propagate(adjP, &offset);
+                adjP = {_currentPatchP.x, _currentPatchP.y - step};
+                _propagate(adjP, &offset);
+                _search(&offset);
             }
         }
     }
 }
 
-void PatchMatcher::_propagate(OfxPointI& p, OfxPointI& candP, OfxPointD* offset) {
-    if (!insideRect(candP, _translateMap->getROD())) {return;}
-    auto candVPtr = _translateMap->getVectorAddress(candP);
-    OfxPointD candOffset = {candVPtr[0], candVPtr[1]};
-    _improve(p, candOffset, offset);
+inline void PatchMatcher::_loadCurrentPatch() {
+    auto m = (_patchSize - 1) / 2;
+    auto patchPtr = _currentPatch.get();
+    OfxPointI o;
+    for (o.y=-m; o.y <= m; o.y++) {
+        for (o.x=-m; o.x <= m; o.x++) {
+            auto trgP = _currentPatchP + o;
+            auto trgPixPtr = _trg->getVectorAddressNearest(trgP);
+            for (auto c=0; c < _maxComps; c++, patchPtr++, trgPixPtr++) {
+                if (c < _trgComps) {
+                    *patchPtr = *trgPixPtr;
+                } else {
+                    *patchPtr = 0;
+                }
+            }
+        }
+    }
 }
 
-void PatchMatcher::_search(OfxPointI& p, OfxPointD* offset) {
-    auto rod = _translateMap->getROD();
-    OfxPointD limits = {(double)rectWidth(rod), (double)rectHeight(rod)};
+inline void PatchMatcher::_propagate(const OfxPointI& candP, OfxPointD* offset) {
+    if (!insideRect(candP, _trgROD)) {return;}
+    auto lastChangePtr = _getLastChangePtr(candP);
+    if ((_currentIteration - *lastChangePtr) > 1) {
+        return;
+    }
+    auto candVPtr = _offsetMap->getVectorAddress(candP);
+    OfxPointD candOffset = {candVPtr[0], candVPtr[1]};
+    _improve(candOffset, offset);
+}
+
+inline void PatchMatcher::_search(OfxPointD* offset) {
+    auto srcROD = _src->getROD();
+    OfxPointD limits = {(double)rectWidth(srcROD), (double)rectHeight(srcROD)};
+    OfxPointD newOffset;
     for (; limits.x >= 1 || limits.y >= 1; limits /= 2) {
-        std::uniform_real_distribution<float> distrX(-limits.x, limits.x);
-        std::uniform_real_distribution<float> distrY(-limits.y, limits.y);
+        std::uniform_real_distribution<float> distrX(
+            -std::min(limits.x, offset->x - srcROD.x1)
+            ,std::min(limits.x, srcROD.x2 - offset->x)
+        );
+        std::uniform_real_distribution<float> distrY(
+            -std::min(limits.y, offset->y - srcROD.y1)
+            ,std::min(limits.y, srcROD.y2 - offset->y)
+        );
         OfxPointD candOffset{
             offset->x + distrX(*_plugin->randEng)
             ,offset->y + distrY(*_plugin->randEng)
         };
-        _improve(p, candOffset, offset);
+        _improve(candOffset, &newOffset);
     }
+    *offset = newOffset;
 }
 
-void PatchMatcher::_improve(OfxPointI& p, OfxPointD& candOffset, OfxPointD* offset) {
-    auto distPtr = _distances->getVectorAddress(p);
-    auto dist = _distance(p, candOffset);
-    auto vPtr = _translateMap->getVectorAddress(p);
+inline void PatchMatcher::_improve(const OfxPointD& candOffset, OfxPointD* offset) {
+    auto distPtr = _distances->getVectorAddress(_currentPatchP);
+    auto dist = _distance(candOffset, *distPtr);
+    auto vPtr = _offsetMap->getVectorAddress(_currentPatchP);
     if (dist < *distPtr) {
-        vPtr[0] = candOffset.x;
-        vPtr[1] = candOffset.y;
+        offset->x = vPtr[0] = candOffset.x;
+        offset->y = vPtr[1] = candOffset.y;
         *distPtr = dist;
+        *_getLastChangePtr(_currentPatchP) = _currentIteration;
     }
-    offset->x = vPtr[0];
-    offset->y = vPtr[1];
 }
 
 void PatchMatcher::merge(const VectorGrid* mergeTranslateMap, double scale) {
-    auto dataPtr = _translateMap->getDataAddress();
-    auto distPtr = _distances->getDataAddress();
-    auto rod = _translateMap->getROD();
+    auto dataPtr = _offsetMap->getDataAddress();
+    auto rod = _offsetMap->getROD();
     OfxPointD offset;
-    OfxPointI p;
     float mergeOffset[2];
     OfxPointD mergeOffsetSc;
-    for (p.y = rod.y1; p.y < rod.y2; p.y++) {
-        for (p.x = rod.x1; p.x < rod.x2; p.x++, dataPtr += 2, distPtr++) {
+    _currentIteration = 0;
+    for (_currentPatchP.y = rod.y1; _currentPatchP.y < rod.y2; _currentPatchP.y++) {
+        for (_currentPatchP.x = rod.x1; _currentPatchP.x < rod.x2;
+            _currentPatchP.x++, dataPtr += 2)
+        {
             if (_plugin->abort()) {return;}
-            auto mergeP = p * scale;
+            _loadCurrentPatch();
+            auto mergeP = _currentPatchP * scale;
             mergeTranslateMap->bilinear(mergeP.x, mergeP.y, mergeOffset);
             mergeOffsetSc = {mergeOffset[0] / scale, mergeOffset[1] / scale};
-            auto newDist = _distance(p, mergeOffsetSc);
-            if (newDist < *distPtr) {
-                dataPtr[0] = mergeOffsetSc.x;
-                dataPtr[1] = mergeOffsetSc.y;
-                *distPtr = newDist;
-            }
+            _improve(mergeOffsetSc, &offset);
         }
     }
 }
 
-VectorGrid* PatchMatcher::releaseTranslateMap() {
-    return _translateMap.release();
+VectorGrid* PatchMatcher::releaseOffsetMap() {
+    return _offsetMap.release();
 }
 
-double PatchMatcher::_distance(OfxPointI& p, OfxPointD& offset) {
+inline double PatchMatcher::_distance(const OfxPointD& offset, double maxDistance) {
     OfxPointI patchP;
     auto m = (_patchSize - 1) / 2;
     auto weightPtr = _patchWeights.get();
-    auto trgCentre = p + offset;
+    auto srcCentre = _currentPatchP + offset;
     double dist = 0;
+    auto trgPixPtr = _currentPatch.get();
     for (patchP.y = -m; patchP.y <= m; patchP.y++) {
         for (patchP.x = -m; patchP.x <= m; patchP.x++, weightPtr++) {
-            auto srcP = p + patchP;
-            auto srcPixPtr = _src->getVectorAddressNearest(srcP);
-            auto trgP = trgCentre + patchP;
-            _trg->bilinear(trgP.x, trgP.y, _trgBilinearPix.get());
-            for (auto c=0; c < _maxComps; c++) {
+            auto srcP = srcCentre + patchP;
+            _src->bilinear(srcP.x, srcP.y, _srcBilinearPix.get());
+            auto srcPixPtr = _srcBilinearPix.get();
+            for (auto c=0; c < _maxComps; c++, srcPixPtr++, trgPixPtr++) {
                 float srcVal, trgVal;
-                if (c < _srcComps) {
-                    srcVal = srcPixPtr[c];
-                } else {
-                    srcVal = 0;
-                }
-                if (c < _trgComps) {
-                    trgVal = _trgBilinearPix.get()[c];
-                } else {
-                    trgVal = 0;
-                }
+                srcVal = *srcPixPtr;
+                trgVal = *trgPixPtr;
                 auto diff = trgVal - srcVal;
                 dist += (diff * diff) * *weightPtr;
+                if (maxDistance >= 0 && dist >= maxDistance) {
+                    return dist;
+                }
             }
         }
     }
