@@ -27,7 +27,7 @@ public:
 protected:
     void fetchFaceParams(FaceParams* faceParams, std::string prefix);
 
-    void trackClipAtTime(Clip* clip, FaceParams* faceParams, double t);
+    void trackClipAtTime(Clip* clip, FaceParams* faceParams, double t, double* refT=NULL);
 
     void addFaceParamsToSlaveTo(OverlayInteract* interact, FaceParams* faceParams);
 

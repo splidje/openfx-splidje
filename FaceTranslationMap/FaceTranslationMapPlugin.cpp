@@ -340,17 +340,21 @@ void FaceTranslationMapPlugin::stabiliseSourceAtTime(double t) {
 }
 
 void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
-    if (paramName == kParamTrackSource) {
-        trackClipAtTime(_srcClip, &_srcFaceParams, args.time);
-    } else if (paramName == kParamTrackSourceAll) {
-        OfxRangeD timeline;
-        timeLineGetBounds(timeline.min, timeline.max);
-        progressStart("Track Source Face");
-        for (auto t=timeline.min; t <= timeline.max; t++) {
-            trackClipAtTime(_srcClip, &_srcFaceParams, t);
-            if (!progressUpdate((t - timeline.min) / (timeline.max - timeline.min))) {return;}
+    if (paramName == kParamTrackSource || paramName == kParamTrackSourceAll) {
+        double refFrame = _referenceFrame->getValue();
+        trackClipAtTime(_srcClip, &_srcFaceParams, refFrame);
+        if (paramName == kParamTrackSource) {
+            trackClipAtTime(_srcClip, &_srcFaceParams, args.time, &refFrame);
+        } else if (paramName == kParamTrackSourceAll) {
+            OfxRangeD timeline;
+            timeLineGetBounds(timeline.min, timeline.max);
+            progressStart("Track Source Face");
+            for (auto t=timeline.min; t <= timeline.max; t++) {
+                trackClipAtTime(_srcClip, &_srcFaceParams, t, &refFrame);
+                if (!progressUpdate((t - timeline.min) / (timeline.max - timeline.min))) {return;}
+            }
+            progressEnd();
         }
-        progressEnd();
     } else if (paramName == kParamRemoveSourceHighFreqs) {
         progressStart("Removing Source High Frequencies");
         auto freqCount = _srcHighFreqRemovalCount->getValue();

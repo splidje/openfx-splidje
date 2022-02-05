@@ -140,13 +140,34 @@ u_char float_to_u_char_clamped(float v) {
     return std::max(0.0f, std::min(1.0f, v)) * UCHAR_MAX;
 }
 
-void setPointParam(Double2DParam* param, dlib::point val, OfxRectI bounds, double time) {
+void setPointParamIfBetter(Image* img, Image* refImg, Double2DParam* param, double t, dlib::point val, OfxRectI& bounds, double* refT) {
+    if (!refT || *refT == t) {
+        setPointParam(param, t, val, bounds);
+    } else {
+        OfxPointD prevVal;
+        if (*refT < t) {
+            prevVal = param->getValueAtTime(t - 1);
+        } else {
+            prevVal = param->getValueAtTime(t + 1);
+        }
+        auto rad = 3;
+        auto xCent = bounds.x1 + val.x();
+        auto yCent = bounds.y2 - val.y();
+        for (auto yOff=-rad; yOff <= rad; yOff++) {
+            for (auto xOff=-rad; xOff <= rad; xOff++) {
+                
+            }
+        }
+    }
+}
+
+void setPointParam(Double2DParam* param, double time, dlib::point val, OfxRectI bounds) {
     auto x = bounds.x1 + val.x();
     auto y = bounds.y2 - val.y();
     param->setValueAtTime(time, x, y);
 }
 
-void FaceTrackPluginBase::trackClipAtTime(Clip* clip, FaceParams* faceParams, double t) {
+void FaceTrackPluginBase::trackClipAtTime(Clip* clip, FaceParams* faceParams, double t, double* refT) {
     auto_ptr<Image> img(clip->fetchImage(t));
     auto bounds = img->getBounds();
     auto componentCount = img->getPixelComponentCount();
@@ -162,6 +183,11 @@ void FaceTrackPluginBase::trackClipAtTime(Clip* clip, FaceParams* faceParams, do
         }
     }
 
+    auto_ptr<Image> refImg;
+    if (refT) {
+        refImg.reset(clip->fetchImage(*refT));
+    }
+
     // detect faces
     // dlib::pyramid_up(img);        
     auto faces = _detector(dlibImg);
@@ -169,8 +195,14 @@ void FaceTrackPluginBase::trackClipAtTime(Clip* clip, FaceParams* faceParams, do
         return;
     }
     auto face = faces[0];
-    faceParams->bottomLeft->setValueAtTime(
-        t, face.left() + bounds.x1, bounds.y2 - face.bottom()
+    setPointParamIfBetter(
+        img.get(),
+        refImg.get(),
+        faceParams->bottomLeft,
+        t,
+        face.bl_corner(),
+        bounds,
+        refT
     );
     faceParams->topRight->setValueAtTime(
         t, face.right() + bounds.x1, bounds.y2 - face.top()
