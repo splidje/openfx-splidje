@@ -18,6 +18,10 @@
 #define kParamTrackSourceAllLabel "Track Source All"
 #define kParamTrackSourceAllHint "Track Source All"
 
+#define kParamClearSourceKeyframeAll "clearSourceKeyframeAll"
+#define kParamClearSourceKeyframeAllLabel "Clear All Source Keyframes"
+#define kParamClearSourceKeyframeAllHint "Clear All Source Keyframes"
+
 #define kParamSourceHighFreqRemovalCount "sourceHighFrequencyRemovalCount"
 #define kParamSourceHighFreqRemovalCountLabel "Source High Frequency Removal Count"
 #define kParamSourceHighFreqRemovalCountHint "Source High Frequency Removal Count"

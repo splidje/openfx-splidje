@@ -29,6 +29,29 @@ bool FaceTranslationMapPluginInteract::draw(const DrawArgs &args)
     glMatrixMode(GL_PROJECTION);
     glMatrixMode(GL_MODELVIEW); // Modelview should be used on Nuke
 
+    std::vector<TriangleMaths::Triangle> faceMesh;
+    faceTranslationMapPlugin->getFaceMesh(&faceMesh);
+
+    for (auto tri : faceMesh) {
+        glColor4f(0, 0, 1, 0.5);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glBegin(GL_POLYGON);
+        glVertex2f(tri.p1.x, tri.p1.y);
+        glVertex2f(tri.p2.x, tri.p2.y);
+        glVertex2f(tri.p3.x, tri.p3.y);
+        glEnd();
+
+        glColor4f(0, 0, 1, 1);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glBegin(GL_POLYGON);
+        glVertex2f(tri.p1.x, tri.p1.y);
+        glVertex2f(tri.p2.x, tri.p2.y);
+        glVertex2f(tri.p3.x, tri.p3.y);
+        glEnd();
+    }
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
     auto outputLabel = faceTranslationMapPlugin->getSelectedOuputOptionLabel(args.time);
 
     if (outputLabel == kParamOutputChoiceSourceLabel) {

@@ -217,6 +217,14 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
     // Source Face
     {
         auto page = desc.definePageParam("Source Face");
+        {
+            auto param = desc.definePushButtonParam(kParamClearSourceKeyframeAll);
+            param->setLabel(kParamClearSourceKeyframeAllLabel);
+            param->setHint(kParamClearSourceKeyframeAllHint);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
         FaceTrackPluginBase::defineFaceParams(&desc, page, kFaceParamsPrefixSource);
     }
 

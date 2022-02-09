@@ -10,6 +10,7 @@ Bundle/Linux-64-release
 *.dat
 *.mov
 *.exr
+*.wav
 
 PatchMatch/seagull_vects_v001/
 natron crash_001
