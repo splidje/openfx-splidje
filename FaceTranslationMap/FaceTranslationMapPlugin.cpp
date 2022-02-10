@@ -486,31 +486,34 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
             _srcFaceParams.landmarks[i]->deleteKeyAtTime(args.time);
         }
     } else if (paramName == kParamRemoveSourceeNoise) {
-        progressStart("Removing Source High Frequencies");
         auto profRange = _srcNoiseProfileRange->getValue();
 
         OfxRangeD timeline;
         timeLineGetBounds(timeline.min, timeline.max);
         auto count = timeline.max - timeline.min + 1;
-        std::vector<OfxPointD[kLandmarkCount]> data(count);
+        std::vector<std::array<OfxPointD, kLandmarkCount>> data(count);
+        progressStart("Reading Face Params");
         for (int t=0; t < count; t++) {
             for (int i=0; i < kLandmarkCount; i++) {
                 data[t][i] = _srcFaceParams.landmarks[i]->getValueAtTime(timeline.min + t);
             }
-            if (!progressUpdate(0.3 * t / count)) {return;}
+            if (!progressUpdate(t / count)) {return;}
         }
-        auto profCount = profRange.y - profRange.x + 1;
+        progressEnd();
+        double profCount = profRange.y - profRange.x + 1;
         auto profOffset = profRange.x - timeline.min;
-        int freqCount = round(profCount / 2);
-        std::vector<OfxPointD[kLandmarkCount][2]> freqResp(freqCount);
-        for (auto f=1; f < freqCount; f++) {
+        auto freqCount = round(profCount / 2);
+        std::vector<std::array<std::array<OfxPointD, 2>, kLandmarkCount>> freqResp(freqCount);
+        progressStart("Calculating Profile Freq Resp");
+        for (auto f=0; f < freqCount; f++) {
             auto d = f ? profCount / 2 : profCount;
             for (auto i=0; i < kLandmarkCount; i++) {
                 freqResp[f][i][0] = {0, 0};
                 freqResp[f][i][1] = {0, 0};
                 for (int t=profOffset; t < profOffset + profCount; t++) {
-                    auto s = sin(2 * M_PI * t * f / profCount);
-                    auto c = cos(2 * M_PI * t * f / profCount);
+                    auto tScaled = 2 * M_PI * t * (f + 1) / profCount;
+                    auto s = sin(tScaled);
+                    auto c = cos(tScaled);
                     freqResp[f][i][0].x += s * data[t][i].x;
                     freqResp[f][i][0].y += s * data[t][i].y;
                     freqResp[f][i][1].x += c * data[t][i].x;
@@ -521,28 +524,32 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
                 freqResp[f][i][1].x /= d;
                 freqResp[f][i][1].y /= d;
             }
-            if (!progressUpdate(0.3 + 0.3 * f / freqCount)) {return;}
+            if (!progressUpdate(f / freqCount)) {return;}
         }
+        progressEnd();
 
         // remove from whole timeline
-        for (int f=1; f < freqCount; f++) {
+        progressStart("Removing Freqs");
+        for (int f=0; f < freqCount; f++) {
             for (int i=0; i < kLandmarkCount; i++) {
                 for (int t=0; t < count; t++) {
-                    auto tScaled = 2 * M_PI * t * f / profCount;
+                    auto tScaled = 2 * M_PI * t * (f + 1) / profCount;
                     auto sinVal = sin(tScaled);
                     auto cosVal = cos(tScaled);
                     data[t][i].x -= freqResp[f][i][0].x * sinVal + freqResp[f][i][1].x * cosVal;
                     data[t][i].y -= freqResp[f][i][0].y * sinVal + freqResp[f][i][1].y * cosVal;
                 }
             }
-            if (!progressUpdate(0.6 + 0.2 * f / freqCount)) {return;}
+            if (!progressUpdate(f / freqCount)) {return;}
         }
+        progressEnd();
 
+        progressStart("Updating Face Params");
         for (int t=0; t < count; t++) {
             for (int i=0; i < kLandmarkCount; i++) {
                 _srcFaceParams.landmarks[i]->setValueAtTime(timeline.min + t, data[t][i]);
             }
-            if (!progressUpdate(0.8 + 0.2 * t / (count - 1))) {return;}
+            if (!progressUpdate(t / (count - 1))) {return;}
         }
         progressEnd();
     } if (paramName == kParamTrackTarget) {
