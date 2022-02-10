@@ -506,7 +506,7 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         std::vector<std::array<std::array<OfxPointD, 2>, kLandmarkCount>> freqResp(freqCount);
         progressStart("Calculating Profile Freq Resp");
         for (auto f=0; f < freqCount; f++) {
-            auto d = f ? profCount / 2 : profCount;
+            auto d = profCount / 2;
             for (auto i=0; i < kLandmarkCount; i++) {
                 freqResp[f][i][0] = {0, 0};
                 freqResp[f][i][1] = {0, 0};
