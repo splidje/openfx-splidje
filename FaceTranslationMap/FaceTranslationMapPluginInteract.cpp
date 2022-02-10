@@ -15,10 +15,10 @@
 FaceTranslationMapPluginInteract::FaceTranslationMapPluginInteract(OfxInteractHandle handle, OFX::ImageEffect* effect)
     : OFX::OverlayInteract(handle)
 {
-    auto faceTranslationMapPlugin = (FaceTranslationMapPlugin*)effect;
-    addParamToSlaveTo(faceTranslationMapPlugin->_output);
-    faceTranslationMapPlugin->addFaceParamsToSlaveTo(this, &faceTranslationMapPlugin->_srcFaceParams);
-    faceTranslationMapPlugin->addFaceParamsToSlaveTo(this, &faceTranslationMapPlugin->_trgFaceParams);
+    // auto faceTranslationMapPlugin = (FaceTranslationMapPlugin*)effect;
+    // addParamToSlaveTo(faceTranslationMapPlugin->_output);
+    // faceTranslationMapPlugin->addFaceParamsToSlaveTo(this, &faceTranslationMapPlugin->_srcFaceParams);
+    // faceTranslationMapPlugin->addFaceParamsToSlaveTo(this, &faceTranslationMapPlugin->_trgFaceParams);
 }
 
 bool FaceTranslationMapPluginInteract::draw(const DrawArgs &args)

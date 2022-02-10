@@ -56,16 +56,11 @@ private:
     PushButtonParam* _srcTrack;
     PushButtonParam* _srcTrackAll;
     PushButtonParam* _srcClearKeyframeAll;
-    IntParam* _srcHighFreqRemovalCount;
-    PushButtonParam* _srcRemoveHighFreqs;
+    Int2DParam* _srcNoiseProfileRange;
+    PushButtonParam* _srcRemoveNoise;
     PushButtonParam* _trgTrack;
     PushButtonParam* _trgTrackAll;
     IntParam* _referenceFrame;
-    PushButtonParam* _stabSrc;
-    Double2DParam* _stabCentre;
-    Double2DParam* _stabTrans;
-    DoubleParam* _stabScale;
-    DoubleParam* _stabRot;
     PushButtonParam* _calcRel;
     PushButtonParam* _calcRelAll;
     ChoiceParam* _output;

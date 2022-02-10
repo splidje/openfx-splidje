@@ -78,19 +78,20 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             }
         }
         {
-            auto param = desc.defineIntParam(kParamSourceHighFreqRemovalCount);
-            param->setLabel(kParamSourceHighFreqRemovalCountLabel);
-            param->setHint(kParamSourceHighFreqRemovalCountHint);
+            auto param = desc.defineInt2DParam(kParamSourceNoiseProfileRange);
+            param->setLabel(kParamSourceNoiseProfileRangeLabel);
+            param->setHint(kParamSourceNoiseProfileRangeHint);
             param->setAnimates(false);
-            param->setDefault(3);
+            param->setDefault(1, 10);
+            param->setDimensionLabels("first", "last");
             if (page) {
                 page->addChild(*param);
             }
         }
         {
-            auto param = desc.definePushButtonParam(kParamRemoveSourceHighFreqs);
-            param->setLabel(kParamRemoveSourceHighFreqsLabel);
-            param->setHint(kParamRemoveSourceHighFreqsHint);
+            auto param = desc.definePushButtonParam(kParamRemoveSourceeNoise);
+            param->setLabel(kParamRemoveSourceNoiseLabel);
+            param->setHint(kParamRemoveSourceNoiseHint);
             if (page) {
                 page->addChild(*param);
             }
@@ -115,46 +116,6 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             auto param = desc.defineIntParam(kParamReferenceFrame);
             param->setLabel(kParamReferenceFrameLabel);
             param->setHint(kParamReferenceFrameHint);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.definePushButtonParam(kParamStabiliseSource);
-            param->setLabel(kParamStabiliseSourceLabel);
-            param->setHint(kParamStabiliseSourceHint);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineDouble2DParam(kParamStabilisedCentre);
-            param->setLabel(kParamStabilisedCentreLabel);
-            param->setHint(kParamStabilisedCentreHint);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineDouble2DParam(kParamStabilisedTranslate);
-            param->setLabel(kParamStabilisedTranslateLabel);
-            param->setHint(kParamStabilisedTranslateHint);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineDoubleParam(kParamStabilisedScale);
-            param->setLabel(kParamStabilisedScaleLabel);
-            param->setHint(kParamStabilisedScaleHint);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineDoubleParam(kParamStabilisedRotate);
-            param->setLabel(kParamStabilisedRotateLabel);
-            param->setHint(kParamStabilisedRotateHint);
             if (page) {
                 page->addChild(*param);
             }

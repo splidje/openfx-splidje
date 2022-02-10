@@ -22,13 +22,13 @@
 #define kParamClearSourceKeyframeAllLabel "Clear All Source Keyframes"
 #define kParamClearSourceKeyframeAllHint "Clear All Source Keyframes"
 
-#define kParamSourceHighFreqRemovalCount "sourceHighFrequencyRemovalCount"
-#define kParamSourceHighFreqRemovalCountLabel "Source High Frequency Removal Count"
-#define kParamSourceHighFreqRemovalCountHint "Source High Frequency Removal Count"
+#define kParamSourceNoiseProfileRange "sourceNoiseProfileRange"
+#define kParamSourceNoiseProfileRangeLabel "Source Noise Profile Range"
+#define kParamSourceNoiseProfileRangeHint "Source Noise Profile Range"
 
-#define kParamRemoveSourceHighFreqs "removeSourceHighFrequences"
-#define kParamRemoveSourceHighFreqsLabel "Remove Source High Frequences"
-#define kParamRemoveSourceHighFreqsHint "Remove Source High Frequences"
+#define kParamRemoveSourceeNoise "removeSourceNoise"
+#define kParamRemoveSourceNoiseLabel "Remove Source Noise"
+#define kParamRemoveSourceNoiseHint "Remove Source Noise"
 
 #define kParamTrackTarget "trackTarget"
 #define kParamTrackTargetLabel "Track Target"
@@ -41,26 +41,6 @@
 #define kParamReferenceFrame "referenceFrame"
 #define kParamReferenceFrameLabel "Reference Frame"
 #define kParamReferenceFrameHint "Reference Frame"
-
-#define kParamStabiliseSource "stabiliseSource"
-#define kParamStabiliseSourceLabel "Stabilise Source"
-#define kParamStabiliseSourceHint "Stabilise Source"
-
-#define kParamStabilisedCentre "stabilisedCentre"
-#define kParamStabilisedCentreLabel "Stabilised Centre"
-#define kParamStabilisedCentreHint "Stabilised Centre"
-
-#define kParamStabilisedTranslate "stabilisedTranslate"
-#define kParamStabilisedTranslateLabel "Stabilised Translate"
-#define kParamStabilisedTranslateHint "Stabilised Translate"
-
-#define kParamStabilisedScale "stabilisedScale"
-#define kParamStabilisedScaleLabel "Stabilised Scale"
-#define kParamStabilisedScaleHint "Stabilised Scale"
-
-#define kParamStabilisedRotate "stabilisedRotate"
-#define kParamStabilisedRotateLabel "Stabilised Rotate"
-#define kParamStabilisedRotateHint "Stabilised Rotate"
 
 #define kParamCalculateRelative "calculateRelative"
 #define kParamCalculateRelativeLabel "Calculate Relative Face"

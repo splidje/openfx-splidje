@@ -18,16 +18,11 @@ FaceTranslationMapPlugin::FaceTranslationMapPlugin(OfxImageEffectHandle handle)
     _srcTrack = fetchPushButtonParam(kParamTrackSource);
     _srcTrackAll = fetchPushButtonParam(kParamTrackSourceAll);
     _srcClearKeyframeAll = fetchPushButtonParam(kParamClearSourceKeyframeAll);
-    _srcHighFreqRemovalCount = fetchIntParam(kParamSourceHighFreqRemovalCount);
-    _srcRemoveHighFreqs = fetchPushButtonParam(kParamRemoveSourceHighFreqs);
+    _srcNoiseProfileRange = fetchInt2DParam(kParamSourceNoiseProfileRange);
+    _srcRemoveNoise = fetchPushButtonParam(kParamRemoveSourceeNoise);
     _trgTrack = fetchPushButtonParam(kParamTrackTarget);
     _trgTrackAll = fetchPushButtonParam(kParamTrackTargetAll);
     _referenceFrame = fetchIntParam(kParamReferenceFrame);
-    _stabSrc = fetchPushButtonParam(kParamStabiliseSource);
-    _stabCentre = fetchDouble2DParam(kParamStabilisedCentre);
-    _stabTrans = fetchDouble2DParam(kParamStabilisedTranslate);
-    _stabScale = fetchDoubleParam(kParamStabilisedScale);
-    _stabRot = fetchDoubleParam(kParamStabilisedRotate);
     _calcRel = fetchPushButtonParam(kParamCalculateRelative);
     _calcRelAll = fetchPushButtonParam(kParamCalculateRelativeAll);
     _output = fetchChoiceParam(kParamOutput);
@@ -447,22 +442,28 @@ inline void _transformPointParam(Double2DParam* param, double t, OfxPointD centr
 
 void FaceTranslationMapPlugin::stabiliseSourceAtTime(double t) {
     auto refFrame = _referenceFrame->getValueAtTime(t);
-
-    // average point at ref time
-    OfxPointD refAvg({0, 0});
-    OfxPointD avg({0, 0});
-    for (auto i=0; i < kLandmarkCount; i++) {
-        refAvg = _vectAdd(refAvg, _srcFaceParams.landmarks[i]->getValueAtTime(refFrame));
-        avg = _vectAdd(avg, _srcFaceParams.landmarks[i]->getValueAtTime(t));
-    }
-    refAvg = _vectDiv(refAvg, kLandmarkCount);
-    avg = _vectDiv(avg, kLandmarkCount);
-    // std::cout << refAvg.x << "," << refAvg.y << " " << avg.x << "," << avg.y << std::endl;
-    auto trans = _vectSub(refAvg, avg);
-    _stabTrans->setValueAtTime(t, trans);
+    auto jawStartParam = _srcFaceParams.landmarks[kLandmarkIndexJawStart];
+    auto jawEndParam = _srcFaceParams.landmarks[kLandmarkIndexJawEnd];
+    _edge_t refEdge = {
+        jawStartParam->getValueAtTime(refFrame)
+        ,jawEndParam->getValueAtTime(refFrame)
+    };
+    _edge_t edge = {
+        jawStartParam->getValueAtTime(t)
+        ,jawEndParam->getValueAtTime(t)
+    };
+    auto refCentre = _edgeCentre(refEdge);
+    auto centre = _edgeCentre(edge);
+    auto trans = _vectSub(refCentre, centre);
+    auto refVect = _vectSub(refEdge.second, refEdge.first);
+    auto vect = _vectSub(edge.second, edge.first);
+    auto scale = sqrt(_vectMagSq(refVect) / _vectMagSq(vect));
+    auto refAng = atan2(refVect.y, refVect.x);
+    auto ang = atan2(vect.y, vect.x);
+    auto rot = refAng - ang;
     // transform the landmarks at time t
-    for (auto i = 0; i < kLandmarkCount; i++) {
-        _transformPointParam(_srcFaceParams.landmarks[i], t, {0, 0}, 0, 1, trans);
+    for (auto i = kLandmarkIndexJawStart; i <= kLandmarkIndexJawEnd; i++) {
+        _transformPointParam(_srcFaceParams.landmarks[i], t, centre, rot, scale, trans);
     }
 }
 
@@ -484,62 +485,59 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         for (auto i=0; i < kLandmarkCount; i++) {
             _srcFaceParams.landmarks[i]->deleteKeyAtTime(args.time);
         }
-    } else if (paramName == kParamRemoveSourceHighFreqs) {
+    } else if (paramName == kParamRemoveSourceeNoise) {
         progressStart("Removing Source High Frequencies");
-        auto freqCount = _srcHighFreqRemovalCount->getValue();
+        auto profRange = _srcNoiseProfileRange->getValue();
+
         OfxRangeD timeline;
         timeLineGetBounds(timeline.min, timeline.max);
-        long count = timeline.max - timeline.min + 1;
-        std::vector<std::array<OfxPointD, kLandmarkCount>> data(count);
+        auto count = timeline.max - timeline.min + 1;
+        std::vector<OfxPointD[kLandmarkCount]> data(count);
         for (int t=0; t < count; t++) {
             for (int i=0; i < kLandmarkCount; i++) {
                 data[t][i] = _srcFaceParams.landmarks[i]->getValueAtTime(timeline.min + t);
             }
-            if (!progressUpdate(0.2 * t / (count - 1))) {return;}
+            if (!progressUpdate(0.3 * t / count)) {return;}
         }
-        // ensure even
-        auto evenCount = (count >> 1) << 1;
-        std::vector<std::array<std::array<OfxPointD, 2>, kLandmarkCount>> freqResp(freqCount);
-        for (int f=0; f < freqCount; f++) {
-            for (int i=0; i < kLandmarkCount; i++) {
-                for (int ph=0; ph < 2; ph++) {
-                    freqResp[f][i][ph].x = 0;
-                    freqResp[f][i][ph].y = 0;
+        auto profCount = profRange.y - profRange.x + 1;
+        auto profOffset = profRange.x - timeline.min;
+        int freqCount = round(profCount / 2);
+        std::vector<OfxPointD[kLandmarkCount][2]> freqResp(freqCount);
+        for (auto f=1; f < freqCount; f++) {
+            auto d = f ? profCount / 2 : profCount;
+            for (auto i=0; i < kLandmarkCount; i++) {
+                freqResp[f][i][0] = {0, 0};
+                freqResp[f][i][1] = {0, 0};
+                for (int t=profOffset; t < profOffset + profCount; t++) {
+                    auto s = sin(2 * M_PI * t * f / profCount);
+                    auto c = cos(2 * M_PI * t * f / profCount);
+                    freqResp[f][i][0].x += s * data[t][i].x;
+                    freqResp[f][i][0].y += s * data[t][i].y;
+                    freqResp[f][i][1].x += c * data[t][i].x;
+                    freqResp[f][i][1].y += c * data[t][i].y;
                 }
+                freqResp[f][i][0].x /= d;
+                freqResp[f][i][0].y /= d;
+                freqResp[f][i][1].x /= d;
+                freqResp[f][i][1].y /= d;
             }
-            if (!progressUpdate(0.2 + 0.2 * f / (freqCount - 1))) {return;}
+            if (!progressUpdate(0.3 + 0.3 * f / freqCount)) {return;}
         }
-        for (double t=0; t < evenCount; t++) {
+
+        // remove from whole timeline
+        for (int f=1; f < freqCount; f++) {
             for (int i=0; i < kLandmarkCount; i++) {
-                auto p = data[t][i];
-                for (int f=0; f < freqCount; f++) {
-                    auto tScaled = M_PI * t * (evenCount - 2 * f) / evenCount;
-                    auto sinVal = sin(tScaled);
-                    freqResp[f][i][0].x += p.x * sinVal;
-                    freqResp[f][i][0].y += p.y * sinVal;
-                    auto cosVal = cos(tScaled);
-                    freqResp[f][i][1].x += p.x * cosVal;
-                    freqResp[f][i][1].y += p.y * cosVal;
-                }
-            }
-            if (!progressUpdate(0.4 + 0.2 * t / (evenCount - 1))) {return;}
-        }
-        for (int f=0; f < freqCount; f++) {
-            for (int i=0; i < kLandmarkCount; i++) {
-                for (int ph=0; ph < 2; ph++) {
-                    freqResp[f][i][ph].x /= evenCount >> (f > 0);
-                    freqResp[f][i][ph].y /= evenCount >> (f > 0);
-                }
                 for (int t=0; t < count; t++) {
-                    auto tScaled = M_PI * t * (evenCount - 2 * f) / evenCount;
+                    auto tScaled = 2 * M_PI * t * f / profCount;
                     auto sinVal = sin(tScaled);
                     auto cosVal = cos(tScaled);
                     data[t][i].x -= freqResp[f][i][0].x * sinVal + freqResp[f][i][1].x * cosVal;
                     data[t][i].y -= freqResp[f][i][0].y * sinVal + freqResp[f][i][1].y * cosVal;
                 }
             }
-            if (!progressUpdate(0.6 + 0.2 * f / (evenCount - 1))) {return;}
+            if (!progressUpdate(0.6 + 0.2 * f / freqCount)) {return;}
         }
+
         for (int t=0; t < count; t++) {
             for (int i=0; i < kLandmarkCount; i++) {
                 _srcFaceParams.landmarks[i]->setValueAtTime(timeline.min + t, data[t][i]);
@@ -555,15 +553,6 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         progressStart("Tracking Target Face");
         for (auto t=timeline.min; t <= timeline.max; t++) {
             trackClipAtTime(_trgClip, &_trgFaceParams, t);
-            if (!progressUpdate((t - timeline.min) / (timeline.max - timeline.min))) {return;}
-        }
-        progressEnd();
-    } else if (paramName == kParamStabiliseSource) {
-        OfxRangeD timeline;
-        timeLineGetBounds(timeline.min, timeline.max);
-        progressStart("Stabilising Source");
-        for (auto t=timeline.min; t <= timeline.max; t++) {
-            stabiliseSourceAtTime(t);
             if (!progressUpdate((t - timeline.min) / (timeline.max - timeline.min))) {return;}
         }
         progressEnd();
