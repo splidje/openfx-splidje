@@ -16,10 +16,11 @@ FaceTranslationMapPlugin::FaceTranslationMapPlugin(OfxImageEffectHandle handle)
     assert(_dstClip && (_dstClip->getPixelComponents() == ePixelComponentRGB ||
     	    _dstClip->getPixelComponents() == ePixelComponentRGBA));
     _srcTrack = fetchPushButtonParam(kParamTrackSource);
-    _srcTrackAll = fetchPushButtonParam(kParamTrackSourceAll);
+    _srcTrackRange = fetchInt3DParam(kParamSourceTrackRange);
+    _srcTrackRangeButt = fetchPushButtonParam(kParamTrackSourceRange);
     _srcClearKeyframeAll = fetchPushButtonParam(kParamClearSourceKeyframeAll);
     _srcNoiseProfileRange = fetchInt2DParam(kParamSourceNoiseProfileRange);
-    _srcRemoveNoise = fetchPushButtonParam(kParamRemoveSourceeNoise);
+    _srcRemoveNoise = fetchPushButtonParam(kParamRemoveSourceNoise);
     _trgTrack = fetchPushButtonParam(kParamTrackTarget);
     _trgTrackAll = fetchPushButtonParam(kParamTrackTargetAll);
     _referenceFrame = fetchIntParam(kParamReferenceFrame);
@@ -96,14 +97,11 @@ void FaceTranslationMapPlugin::render(const OFX::RenderArguments &args) {
 
     _generateFaceMesh(&trgPoints);
 
-    // find the perimeter edges
-    auto perimeter = TriangleMaths::grahamScan(trgPoints);
-
     // create a lookup
     std::map<std::pair<long, long>, long> edgeIndicesToEdge;
-    long i = 0;
-    for (auto ptr=perimeter.begin(); ptr < perimeter.end(); ptr++, i++) {
-        edgeIndicesToEdge.insert({createEdgeMapKey(ptr->indexer.i1, ptr->indexer.i2), i});
+    auto edgePtr = _facePerimeter;
+    for (auto i=0; i < 23; i++, edgePtr++) {
+        edgeIndicesToEdge.insert({createEdgeMapKey(edgePtr->indexer.i1, edgePtr->indexer.i2), i});
     }
 
     // TODO: handle different y render scale and par
@@ -172,7 +170,7 @@ void FaceTranslationMapPlugin::render(const OFX::RenderArguments &args) {
                     );
                 } else {
                     for (auto ptr=perimEdges.begin(); ptr < perimEdges.end(); ptr++) {
-                        auto edge = perimeter[*ptr];
+                        auto edge = _facePerimeter[*ptr];
                         auto vectComp = edge.vectComp(p);
                         if (vectComp >= 0 && vectComp <= edge.magnitude) {
                             auto normComp = edge.normComp(p);
@@ -196,7 +194,7 @@ void FaceTranslationMapPlugin::render(const OFX::RenderArguments &args) {
                                 break;
                             }
                         } else if (vectComp > edge.magnitude) {
-                            auto nextEdge = perimeter[(*ptr + 1) % perimeter.size()];
+                            auto nextEdge = _facePerimeter[(*ptr + 1) % 23];
                             vectComp = nextEdge.vectComp(p);
                             if (vectComp < 0) {
                                 auto dist = sqrt(pow(p.x - edge.p2.x, 2) + pow(p.y - edge.p2.y, 2));
@@ -252,7 +250,7 @@ void FaceTranslationMapPlugin::calculateRelative(double t) {
     }
 }
 
-int _faceMeshTriIndices[113][3] = {
+int _faceMeshTriIndices[111][3] = {
     {0, 1, 17},
     {21, 20, 23},
     {22, 21, 23},
@@ -269,7 +267,7 @@ int _faceMeshTriIndices[113][3] = {
     {33, 30, 34},
     {30, 29, 35},
     {34, 30, 35},
-    {0, 17, 36},
+    {1, 17, 36},
     {17, 18, 37},
     {18, 19, 37},
     {36, 17, 37},
@@ -283,8 +281,7 @@ int _faceMeshTriIndices[113][3] = {
     {28, 29, 40},
     {39, 28, 40},
     {38, 39, 40},
-    {1, 0, 41},
-    {0, 36, 41},
+    {1, 36, 41},
     {29, 1, 41},
     {40, 29, 41},
     {36, 37, 41},
@@ -299,8 +296,7 @@ int _faceMeshTriIndices[113][3] = {
     {24, 25, 44},
     {43, 24, 44},
     {16, 15, 45},
-    {26, 16, 45},
-    {25, 26, 45},
+    {25, 16, 45},
     {44, 25, 45},
     {15, 14, 46},
     {45, 15, 46},
@@ -370,7 +366,7 @@ int _faceMeshTriIndices[113][3] = {
 
 inline void FaceTranslationMapPlugin::_generateFaceMesh(std::vector<OfxPointD>* vertices) {
     _faceMeshLock.lock();
-    for (auto i=0; i < 113; i++) {
+    for (auto i=0; i < 111; i++) {
         _faceMesh[i] = TriangleMaths::Triangle(
             vertices,
             _faceMeshTriIndices[i][0],
@@ -381,6 +377,19 @@ inline void FaceTranslationMapPlugin::_generateFaceMesh(std::vector<OfxPointD>* 
     _faceMeshInitialised = true;
     _faceMeshLock.unlock();
     redrawOverlays();
+
+    // perimeter
+    int i = 0;
+    for (; i < 16; i++) {
+        _facePerimeter[i] = TriangleMaths::Edge(vertices, i, i + 1);
+    }
+    _facePerimeter[i++] = TriangleMaths::Edge(vertices, 16, 26);
+    _facePerimeter[i++] = TriangleMaths::Edge(vertices, 26, 25);
+    _facePerimeter[i++] = TriangleMaths::Edge(vertices, 25, 24);
+    _facePerimeter[i++] = TriangleMaths::Edge(vertices, 24, 19);
+    _facePerimeter[i++] = TriangleMaths::Edge(vertices, 19, 18);
+    _facePerimeter[i++] = TriangleMaths::Edge(vertices, 18, 17);
+    _facePerimeter[i++] = TriangleMaths::Edge(vertices, 17, 0);
 }
 
 typedef std::pair<OfxPointD, OfxPointD> _edge_t;
@@ -470,13 +479,12 @@ void FaceTranslationMapPlugin::stabiliseSourceAtTime(double t) {
 void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
     if (paramName == kParamTrackSource) {
         trackClipAtTime(_srcClip, &_srcFaceParams, args.time);
-    } else if (paramName == kParamTrackSourceAll) {
-        OfxRangeD timeline;
-        timeLineGetBounds(timeline.min, timeline.max);
+    } else if (paramName == kParamTrackSourceRange) {
         progressStart("Track Source Face");
-        for (auto t=timeline.min; t <= timeline.max; t++) {
+        auto range = _srcTrackRange->getValue();
+        for (auto t=range.x; t <= range.y; t += range.z) {
             trackClipAtTime(_srcClip, &_srcFaceParams, t);
-            if (!progressUpdate((t - timeline.min) / (timeline.max - timeline.min))) {return;}
+            if (!progressUpdate((t - range.x) / (double)(range.y - range.x))) {return;}
         }
         progressEnd();
     } else if (paramName == kParamClearSourceKeyframeAll) {
@@ -485,7 +493,7 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         for (auto i=0; i < kLandmarkCount; i++) {
             _srcFaceParams.landmarks[i]->deleteKeyAtTime(args.time);
         }
-    } else if (paramName == kParamRemoveSourceeNoise) {
+    } else if (paramName == kParamRemoveSourceNoise) {
         auto profRange = _srcNoiseProfileRange->getValue();
 
         OfxRangeD timeline;

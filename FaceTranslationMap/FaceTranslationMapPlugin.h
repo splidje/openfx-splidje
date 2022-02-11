@@ -54,7 +54,8 @@ private:
     Clip* _trgClip;
     Clip* _dstClip;
     PushButtonParam* _srcTrack;
-    PushButtonParam* _srcTrackAll;
+    PushButtonParam* _srcTrackRangeButt;
+    Int3DParam* _srcTrackRange;
     PushButtonParam* _srcClearKeyframeAll;
     Int2DParam* _srcNoiseProfileRange;
     PushButtonParam* _srcRemoveNoise;
@@ -68,7 +69,8 @@ private:
     FaceParams _srcFaceParams;
     FaceParams _trgFaceParams;
     FaceParams _relFaceParams;
-    TriangleMaths::Triangle _faceMesh[113];
+    TriangleMaths::Triangle _faceMesh[111];
     bool _faceMeshInitialised = false;
     std::mutex _faceMeshLock;
+    TriangleMaths::Edge _facePerimeter[23];
 };

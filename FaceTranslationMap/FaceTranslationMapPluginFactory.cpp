@@ -70,9 +70,18 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             }
         }
         {
-            auto param = desc.definePushButtonParam(kParamTrackSourceAll);
-            param->setLabel(kParamTrackSourceAllLabel);
-            param->setHint(kParamTrackSourceAllHint);
+            auto param = desc.defineInt3DParam(kParamSourceTrackRange);
+            param->setDimensionLabels("first", "last", "step");
+            param->setAnimates(false);
+            param->setDefault(1, 100, 1);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.definePushButtonParam(kParamTrackSourceRange);
+            param->setLabel(kParamTrackSourceRangeLabel);
+            param->setHint(kParamTrackSourceRangeHint);
             if (page) {
                 page->addChild(*param);
             }
@@ -89,7 +98,7 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             }
         }
         {
-            auto param = desc.definePushButtonParam(kParamRemoveSourceeNoise);
+            auto param = desc.definePushButtonParam(kParamRemoveSourceNoise);
             param->setLabel(kParamRemoveSourceNoiseLabel);
             param->setHint(kParamRemoveSourceNoiseHint);
             if (page) {

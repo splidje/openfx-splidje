@@ -14,9 +14,11 @@
 #define kParamTrackSourceLabel "Track Source"
 #define kParamTrackSourceHint "Track Source"
 
-#define kParamTrackSourceAll "trackSourceAll"
-#define kParamTrackSourceAllLabel "Track Source All"
-#define kParamTrackSourceAllHint "Track Source All"
+#define kParamTrackSourceRange "trackSourceRange"
+#define kParamTrackSourceRangeLabel "Track Source Range"
+#define kParamTrackSourceRangeHint "Track Source Range"
+
+#define kParamSourceTrackRange "sourceTrackRange"
 
 #define kParamClearSourceKeyframeAll "clearSourceKeyframeAll"
 #define kParamClearSourceKeyframeAllLabel "Clear All Source Keyframes"
@@ -26,7 +28,7 @@
 #define kParamSourceNoiseProfileRangeLabel "Source Noise Profile Range"
 #define kParamSourceNoiseProfileRangeHint "Source Noise Profile Range"
 
-#define kParamRemoveSourceeNoise "removeSourceNoise"
+#define kParamRemoveSourceNoise "removeSourceNoise"
 #define kParamRemoveSourceNoiseLabel "Remove Source Noise"
 #define kParamRemoveSourceNoiseHint "Remove Source Noise"
 
