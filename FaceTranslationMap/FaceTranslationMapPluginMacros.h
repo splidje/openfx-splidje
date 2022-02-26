@@ -20,6 +20,8 @@
 
 #define kParamSourceTrackRange "sourceTrackRange"
 
+#define kParamStabiliseJawSourceAll "stabiliseJawSourceAll"
+
 #define kParamClearSourceKeyframeAll "clearSourceKeyframeAll"
 #define kParamClearSourceKeyframeAllLabel "Clear All Source Keyframes"
 #define kParamClearSourceKeyframeAllHint "Clear All Source Keyframes"

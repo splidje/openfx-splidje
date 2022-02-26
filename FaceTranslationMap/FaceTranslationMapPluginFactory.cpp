@@ -87,6 +87,21 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             }
         }
         {
+            auto param = desc.defineIntParam(kParamReferenceFrame);
+            param->setLabel(kParamReferenceFrameLabel);
+            param->setHint(kParamReferenceFrameHint);
+            param->setAnimates(false);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
+            auto param = desc.definePushButtonParam(kParamStabiliseJawSourceAll);
+            if (page) {
+                page->addChild(*param);
+            }
+        }
+        {
             auto param = desc.defineInt2DParam(kParamSourceNoiseProfileRange);
             param->setLabel(kParamSourceNoiseProfileRangeLabel);
             param->setHint(kParamSourceNoiseProfileRangeHint);
@@ -117,14 +132,6 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             auto param = desc.definePushButtonParam(kParamTrackTargetAll);
             param->setLabel(kParamTrackTargetAllLabel);
             param->setHint(kParamTrackTargetAllHint);
-            if (page) {
-                page->addChild(*param);
-            }
-        }
-        {
-            auto param = desc.defineIntParam(kParamReferenceFrame);
-            param->setLabel(kParamReferenceFrameLabel);
-            param->setHint(kParamReferenceFrameHint);
             if (page) {
                 page->addChild(*param);
             }

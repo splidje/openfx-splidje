@@ -15,17 +15,9 @@ FaceTranslationMapPlugin::FaceTranslationMapPlugin(OfxImageEffectHandle handle)
     _dstClip = fetchClip(kOfxImageEffectOutputClipName);
     assert(_dstClip && (_dstClip->getPixelComponents() == ePixelComponentRGB ||
     	    _dstClip->getPixelComponents() == ePixelComponentRGBA));
-    _srcTrack = fetchPushButtonParam(kParamTrackSource);
     _srcTrackRange = fetchInt3DParam(kParamSourceTrackRange);
-    _srcTrackRangeButt = fetchPushButtonParam(kParamTrackSourceRange);
-    _srcClearKeyframeAll = fetchPushButtonParam(kParamClearSourceKeyframeAll);
     _srcNoiseProfileRange = fetchInt2DParam(kParamSourceNoiseProfileRange);
-    _srcRemoveNoise = fetchPushButtonParam(kParamRemoveSourceNoise);
-    _trgTrack = fetchPushButtonParam(kParamTrackTarget);
-    _trgTrackAll = fetchPushButtonParam(kParamTrackTargetAll);
     _referenceFrame = fetchIntParam(kParamReferenceFrame);
-    _calcRel = fetchPushButtonParam(kParamCalculateRelative);
-    _calcRelAll = fetchPushButtonParam(kParamCalculateRelativeAll);
     _output = fetchChoiceParam(kParamOutput);
     _feather = fetchDoubleParam(kParamFeather);
     fetchFaceParams(&_srcFaceParams, kFaceParamsPrefixSource);
@@ -476,6 +468,79 @@ void FaceTranslationMapPlugin::stabiliseSourceAtTime(double t) {
     }
 }
 
+void FaceTranslationMapPlugin::_cacheRefLandmarkVects() {
+    const int jawCount = kLandmarkIndexJawEnd - kLandmarkIndexJawStart + 1;
+    const double halfwayIndex = (jawCount - 1) / 2.0;
+    auto refFrame = _referenceFrame->getValue();
+    auto startP = _srcFaceParams.landmarks[kLandmarkIndexJawStart]->getValueAtTime(refFrame);
+    _cachedRefLandmarkVects[kLandmarkIndexJawStart] = startP;
+    auto endP = _srcFaceParams.landmarks[kLandmarkIndexJawEnd]->getValueAtTime(refFrame);
+    _cachedRefLandmarkVects[kLandmarkIndexJawEnd] = endP;
+    auto midPoint = _vectDiv(_vectAdd(startP, endP), 2.0);
+    OfxPointD p, v;
+    for (auto i=kLandmarkIndexJawStart + 1; i < kLandmarkIndexJawEnd; i++) {
+        p =_srcFaceParams.landmarks[i]->getValueAtTime(refFrame);
+        if (i < halfwayIndex) {
+            v = _vectSub(p, startP);
+        } else if (i > halfwayIndex) {
+            v = _vectSub(p, endP);
+        } else {
+            v = _vectSub(p, midPoint);
+        }
+        _cachedRefLandmarkVects[i] = v;
+    }
+}
+
+void FaceTranslationMapPlugin::_normaliseSourceAtTime(double t) {
+    const int jawCount = kLandmarkIndexJawEnd - kLandmarkIndexJawStart + 1;
+    const double halfwayIndex = (jawCount - 1) / 2.0;
+    auto startP = _srcFaceParams.landmarks[kLandmarkIndexJawStart]->getValueAtTime(t);
+    auto endP = _srcFaceParams.landmarks[kLandmarkIndexJawEnd]->getValueAtTime(t);
+    auto midPoint = _vectDiv(_vectAdd(startP, endP), 2.0);
+    OfxPointD p, v;
+    double scale = 0;
+    int count = 0;
+    for (auto i=kLandmarkIndexJawStart + 1; i < kLandmarkIndexJawEnd; i++) {
+        if (!_cachedRefLandmarkVects[i].y) {
+            continue;
+        }
+        p =_srcFaceParams.landmarks[i]->getValueAtTime(t);
+        if (i < halfwayIndex) {
+            v = _vectSub(p, startP);
+        } else if (i > halfwayIndex) {
+            v = _vectSub(p, endP);
+        } else {
+            v = _vectSub(p, midPoint);
+        }
+        // std::cout << _vectMagSq(v) << " " << _cachedRefLandmarkDistSqs[i] << std::endl;
+        scale += v.y / _cachedRefLandmarkVects[i].y;
+        count++;
+    }
+    if (count) {
+        scale /= count;
+    } else {
+        scale = 1.0;
+    }
+    // std::cout << scale << std::endl;
+    auto refStartP = _cachedRefLandmarkVects[kLandmarkIndexJawStart];
+    _srcFaceParams.landmarks[kLandmarkIndexJawStart]->setValueAtTime(t, refStartP);
+    auto refEndP = _cachedRefLandmarkVects[kLandmarkIndexJawEnd];
+    _srcFaceParams.landmarks[kLandmarkIndexJawEnd]->setValueAtTime(t, refEndP);
+    auto refMidP = _vectDiv(_vectAdd(refStartP, refEndP), 2.0);
+    for (auto i=kLandmarkIndexJawStart + 1; i < kLandmarkIndexJawEnd; i++) {
+        v = _cachedRefLandmarkVects[i];
+        v.y *= scale;
+        if (i < halfwayIndex) {
+            p = _vectAdd(refStartP, v);
+        } else if (i > halfwayIndex) {
+            p = _vectAdd(refEndP, v);
+        } else {
+            p = _vectAdd(refMidP, v);
+        }
+        _srcFaceParams.landmarks[i]->setValueAtTime(t, p);
+    }
+}
+
 void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
     if (paramName == kParamTrackSource) {
         trackClipAtTime(_srcClip, &_srcFaceParams, args.time);
@@ -485,6 +550,16 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         for (auto t=range.x; t <= range.y; t += range.z) {
             trackClipAtTime(_srcClip, &_srcFaceParams, t);
             if (!progressUpdate((t - range.x) / (double)(range.y - range.x))) {return;}
+        }
+        progressEnd();
+    } else if (paramName == kParamStabiliseJawSourceAll) {
+        progressStart("Normalise Source");
+        _cacheRefLandmarkVects();
+        OfxRangeD timeline;
+        timeLineGetBounds(timeline.min, timeline.max);
+        for (auto t=timeline.min; t <= timeline.max; t++) {
+            _normaliseSourceAtTime(t);
+            if (!progressUpdate((t - timeline.min) / (double)(timeline.max - timeline.min))) {return;}
         }
         progressEnd();
     } else if (paramName == kParamClearSourceKeyframeAll) {
