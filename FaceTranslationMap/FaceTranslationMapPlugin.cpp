@@ -16,7 +16,7 @@ FaceTranslationMapPlugin::FaceTranslationMapPlugin(OfxImageEffectHandle handle)
     assert(_dstClip && (_dstClip->getPixelComponents() == ePixelComponentRGB ||
     	    _dstClip->getPixelComponents() == ePixelComponentRGBA));
     _srcTrackRange = fetchInt3DParam(kParamSourceTrackRange);
-    _srcNoiseProfileRange = fetchInt2DParam(kParamSourceNoiseProfileRange);
+    _srcHighFreqRemovalCount = fetchIntParam(kParamSourceHighFreqRemovalCount);
     _referenceFrame = fetchIntParam(kParamReferenceFrame);
     _output = fetchChoiceParam(kParamOutput);
     _feather = fetchDoubleParam(kParamFeather);
@@ -541,6 +541,75 @@ void FaceTranslationMapPlugin::_normaliseSourceAtTime(double t) {
     }
 }
 
+void FaceTranslationMapPlugin::_removeHighFrequencies(FaceParams* faceParams, int freqCount) {
+    OfxRangeD timeline;
+    timeLineGetBounds(timeline.min, timeline.max);
+    long count = timeline.max - timeline.min + 1;
+    std::vector<std::array<OfxPointD, kLandmarkCount>> data(count);
+    progressStart("Reading Face Params");
+    for (int t=0; t < count; t++) {
+        for (int i=0; i < kLandmarkCount; i++) {
+            data[t][i] = faceParams->landmarks[i]->getValueAtTime(timeline.min + t);
+        }
+        if (!progressUpdate(t / (count - 1))) {return;}
+    }
+    progressEnd();
+    // ensure even
+    auto evenCount = (count >> 1) << 1;
+    std::vector<std::array<std::array<OfxPointD, 2>, kLandmarkCount>> freqResp(freqCount);
+    for (int f=0; f < freqCount; f++) {
+        for (int i=0; i < kLandmarkCount; i++) {
+            for (int ph=0; ph < 2; ph++) {
+                freqResp[f][i][ph].x = 0;
+                freqResp[f][i][ph].y = 0;
+            }
+        }
+    }
+    progressStart("Calculating Frequence Responses");
+    for (double t=0; t < evenCount; t++) {
+        for (int i=0; i < kLandmarkCount; i++) {
+            auto p = data[t][i];
+            for (int f=0; f < freqCount; f++) {
+                auto tScaled = M_PI * t * (evenCount - 2 * f) / evenCount;
+                auto sinVal = sin(tScaled);
+                freqResp[f][i][0].x += p.x * sinVal;
+                freqResp[f][i][0].y += p.y * sinVal;
+                auto cosVal = cos(tScaled);
+                freqResp[f][i][1].x += p.x * cosVal;
+                freqResp[f][i][1].y += p.y * cosVal;
+            }
+        }
+        if (!progressUpdate(t / (evenCount - 1))) {return;}
+    }
+    progressEnd();
+    progressStart("Removing Highest Frequencies");
+    for (int f=0; f < freqCount; f++) {
+        for (int i=0; i < kLandmarkCount; i++) {
+            for (int ph=0; ph < 2; ph++) {
+                freqResp[f][i][ph].x /= evenCount >> (f > 0);
+                freqResp[f][i][ph].y /= evenCount >> (f > 0);
+            }
+            for (int t=0; t < count; t++) {
+                auto tScaled = M_PI * t * (evenCount - 2 * f) / evenCount;
+                auto sinVal = sin(tScaled);
+                auto cosVal = cos(tScaled);
+                data[t][i].x -= freqResp[f][i][0].x * sinVal + freqResp[f][i][1].x * cosVal;
+                data[t][i].y -= freqResp[f][i][0].y * sinVal + freqResp[f][i][1].y * cosVal;
+            }
+        }
+        if (!progressUpdate(f / (evenCount - 1))) {return;}
+    }
+    progressEnd();
+    progressStart("Updating Face Params");
+    for (int t=0; t < count; t++) {
+        for (int i=0; i < kLandmarkCount; i++) {
+            faceParams->landmarks[i]->setValueAtTime(timeline.min + t, data[t][i]);
+        }
+        if (!progressUpdate(t / (count - 1))) {return;}
+    }
+    progressEnd();
+}
+
 void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
     if (paramName == kParamTrackSource) {
         trackClipAtTime(_srcClip, &_srcFaceParams, args.time);
@@ -568,73 +637,8 @@ void FaceTranslationMapPlugin::changedParam(const InstanceChangedArgs &args, con
         for (auto i=0; i < kLandmarkCount; i++) {
             _srcFaceParams.landmarks[i]->deleteKeyAtTime(args.time);
         }
-    } else if (paramName == kParamRemoveSourceNoise) {
-        auto profRange = _srcNoiseProfileRange->getValue();
-
-        OfxRangeD timeline;
-        timeLineGetBounds(timeline.min, timeline.max);
-        auto count = timeline.max - timeline.min + 1;
-        std::vector<std::array<OfxPointD, kLandmarkCount>> data(count);
-        progressStart("Reading Face Params");
-        for (int t=0; t < count; t++) {
-            for (int i=0; i < kLandmarkCount; i++) {
-                data[t][i] = _srcFaceParams.landmarks[i]->getValueAtTime(timeline.min + t);
-            }
-            if (!progressUpdate(t / count)) {return;}
-        }
-        progressEnd();
-        double profCount = profRange.y - profRange.x + 1;
-        auto profOffset = profRange.x - timeline.min;
-        auto freqCount = round(profCount / 2);
-        std::vector<std::array<std::array<OfxPointD, 2>, kLandmarkCount>> freqResp(freqCount);
-        progressStart("Calculating Profile Freq Resp");
-        for (auto f=0; f < freqCount; f++) {
-            auto d = profCount / 2;
-            for (auto i=0; i < kLandmarkCount; i++) {
-                freqResp[f][i][0] = {0, 0};
-                freqResp[f][i][1] = {0, 0};
-                for (int t=profOffset; t < profOffset + profCount; t++) {
-                    auto tScaled = 2 * M_PI * t * (f + 1) / profCount;
-                    auto s = sin(tScaled);
-                    auto c = cos(tScaled);
-                    freqResp[f][i][0].x += s * data[t][i].x;
-                    freqResp[f][i][0].y += s * data[t][i].y;
-                    freqResp[f][i][1].x += c * data[t][i].x;
-                    freqResp[f][i][1].y += c * data[t][i].y;
-                }
-                freqResp[f][i][0].x /= d;
-                freqResp[f][i][0].y /= d;
-                freqResp[f][i][1].x /= d;
-                freqResp[f][i][1].y /= d;
-            }
-            if (!progressUpdate(f / freqCount)) {return;}
-        }
-        progressEnd();
-
-        // remove from whole timeline
-        progressStart("Removing Freqs");
-        for (int f=0; f < freqCount; f++) {
-            for (int i=0; i < kLandmarkCount; i++) {
-                for (int t=0; t < count; t++) {
-                    auto tScaled = 2 * M_PI * t * (f + 1) / profCount;
-                    auto sinVal = sin(tScaled);
-                    auto cosVal = cos(tScaled);
-                    data[t][i].x -= freqResp[f][i][0].x * sinVal + freqResp[f][i][1].x * cosVal;
-                    data[t][i].y -= freqResp[f][i][0].y * sinVal + freqResp[f][i][1].y * cosVal;
-                }
-            }
-            if (!progressUpdate(f / freqCount)) {return;}
-        }
-        progressEnd();
-
-        progressStart("Updating Face Params");
-        for (int t=0; t < count; t++) {
-            for (int i=0; i < kLandmarkCount; i++) {
-                _srcFaceParams.landmarks[i]->setValueAtTime(timeline.min + t, data[t][i]);
-            }
-            if (!progressUpdate(t / (count - 1))) {return;}
-        }
-        progressEnd();
+    } else if (paramName == kParamRemoveSourceHighFreqs) {
+        _removeHighFrequencies(&_srcFaceParams, _srcHighFreqRemovalCount->getValue());
     } if (paramName == kParamTrackTarget) {
         trackClipAtTime(_trgClip, &_trgFaceParams, args.time);
     } else if (paramName == kParamTrackTargetAll) {

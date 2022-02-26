@@ -26,13 +26,13 @@
 #define kParamClearSourceKeyframeAllLabel "Clear All Source Keyframes"
 #define kParamClearSourceKeyframeAllHint "Clear All Source Keyframes"
 
-#define kParamSourceNoiseProfileRange "sourceNoiseProfileRange"
-#define kParamSourceNoiseProfileRangeLabel "Source Noise Profile Range"
-#define kParamSourceNoiseProfileRangeHint "Source Noise Profile Range"
+#define kParamSourceHighFreqRemovalCount "sourceHighFrequencyRemovalCount"
+#define kParamSourceHighFreqRemovalCountLabel "Source High Frequency Removal Count"
+#define kParamSourceHighFreqRemovalCountHint "Source High Frequency Removal Count"
 
-#define kParamRemoveSourceNoise "removeSourceNoise"
-#define kParamRemoveSourceNoiseLabel "Remove Source Noise"
-#define kParamRemoveSourceNoiseHint "Remove Source Noise"
+#define kParamRemoveSourceHighFreqs "removeSourceHighFrequences"
+#define kParamRemoveSourceHighFreqsLabel "Remove Source High Frequences"
+#define kParamRemoveSourceHighFreqsHint "Remove Source High Frequences"
 
 #define kParamTrackTarget "trackTarget"
 #define kParamTrackTargetLabel "Track Target"

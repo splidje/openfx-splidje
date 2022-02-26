@@ -49,6 +49,8 @@ private:
 
     void _normaliseSourceAtTime(double t);
 
+    void _removeHighFrequencies(FaceParams* faceParams, int freqCount);
+
     virtual void changedParam(const InstanceChangedArgs &args, const std::string &paramName) OVERRIDE FINAL;
 
     void _generateFaceMesh(std::vector<OfxPointD>* vertices);
@@ -58,7 +60,7 @@ private:
     Clip* _trgClip;
     Clip* _dstClip;
     Int3DParam* _srcTrackRange;
-    Int2DParam* _srcNoiseProfileRange;
+    IntParam* _srcHighFreqRemovalCount;
     IntParam* _referenceFrame;
     ChoiceParam* _output;
     DoubleParam* _feather;

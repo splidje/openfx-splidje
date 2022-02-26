@@ -102,20 +102,19 @@ void FaceTranslationMapPluginFactory::describeInContext(ImageEffectDescriptor &d
             }
         }
         {
-            auto param = desc.defineInt2DParam(kParamSourceNoiseProfileRange);
-            param->setLabel(kParamSourceNoiseProfileRangeLabel);
-            param->setHint(kParamSourceNoiseProfileRangeHint);
+            auto param = desc.defineIntParam(kParamSourceHighFreqRemovalCount);
+            param->setLabel(kParamSourceHighFreqRemovalCountLabel);
+            param->setHint(kParamSourceHighFreqRemovalCountHint);
             param->setAnimates(false);
-            param->setDefault(1, 10);
-            param->setDimensionLabels("first", "last");
+            param->setDefault(3);
             if (page) {
                 page->addChild(*param);
             }
         }
         {
-            auto param = desc.definePushButtonParam(kParamRemoveSourceNoise);
-            param->setLabel(kParamRemoveSourceNoiseLabel);
-            param->setHint(kParamRemoveSourceNoiseHint);
+            auto param = desc.definePushButtonParam(kParamRemoveSourceHighFreqs);
+            param->setLabel(kParamRemoveSourceHighFreqsLabel);
+            param->setHint(kParamRemoveSourceHighFreqsHint);
             if (page) {
                 page->addChild(*param);
             }
