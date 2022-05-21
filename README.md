@@ -1,4 +1,4 @@
-# splidje OpenFX Effects
+# Splidje OpenFX Effects
 Various OpenFX Effects. Currently all still work-in-progress
 
 ## splidjeCornerPin
