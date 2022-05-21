@@ -9,7 +9,7 @@ using namespace OFX;
 #define kPluginDescription \
 "TranslateMap"
 
-#define kPluginIdentifier "com.ajptechnical.openfx.TranslateMap"
+#define kPluginIdentifier "com.ajptechnical.splidje.openfx.TranslateMap"
 #define kPluginVersionMajor 0
 #define kPluginVersionMinor 1
 

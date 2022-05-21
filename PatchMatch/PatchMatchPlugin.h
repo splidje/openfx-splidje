@@ -12,7 +12,7 @@ using namespace OFX;
 #define kPluginDescription \
 "PatchMatch"
 
-#define kPluginIdentifier "com.ajptechnical.openfx.PatchMatch"
+#define kPluginIdentifier "com.ajptechnical.splidje.openfx.PatchMatch"
 #define kPluginVersionMajor 0
 #define kPluginVersionMinor 1
 

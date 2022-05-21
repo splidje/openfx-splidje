@@ -9,7 +9,7 @@ using namespace OFX;
 #define kPluginDescription \
 "OffsetMap"
 
-#define kPluginIdentifier "com.ajptechnical.openfx.OffsetMap"
+#define kPluginIdentifier "com.ajptechnical.splidje.openfx.OffsetMap"
 #define kPluginVersionMajor 0
 #define kPluginVersionMinor 1
 

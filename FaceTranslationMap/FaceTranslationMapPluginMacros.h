@@ -3,7 +3,7 @@
 #define kPluginDescription \
 "Face translation map"
 
-#define kPluginIdentifier "com.ajptechnical.openfx.FaceTranslationMap"
+#define kPluginIdentifier "com.ajptechnical.splidje.openfx.FaceTranslationMap"
 #define kPluginVersionMajor 0
 #define kPluginVersionMinor 1
 

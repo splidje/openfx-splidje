@@ -1,5 +1,5 @@
 SUBDIRS = Bundle
-SUBDIRS_NOMULTI = MeshWarp PatchMatch OffsetMap TranslateMap FaceTrack
+SUBDIRS_NOMULTI = TriangleMaths QuadrangleDistort PatchMatch OffsetMap TranslateMap FaceTrackPluginBase FaceTrack FaceTrackTranslationMap
 
 all: subdirs
 

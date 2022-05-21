@@ -189,6 +189,10 @@ void FaceTrackPluginBase::trackClipAtTime(Clip* clip, FaceParams* faceParams, do
     }
 }
 
+void FaceTrackPluginBase::improveFaceByReferenceAtTime(Clip* clip, FaceParams* faceParams, double t, double refT) {
+    
+}
+
 inline void addVertex(Double2DParam* p1, double t) {
     auto p1Val = p1->getValueAtTime(t);
     glVertex2f(p1Val.x, p1Val.y);

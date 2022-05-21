@@ -1,16 +1,15 @@
-PLUGINNAME = AJPTechnical
+PLUGINNAME = Splidje
 
 PLUGINOBJECTS = \
+TriangleMaths.o\
+QuadrangleDistort.o\
+CornerPinPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o\
 PatchMatchPluginFactory.o PatchMatchPlugin.o PatchMatcher.o\
 OffsetMapPluginFactory.o OffsetMapPlugin.o\
+TranslateMapPluginFactory.o TranslateMapPlugin.o\
 FaceTrackPluginBase.o\
 FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackPluginInteract.o\
-TriangleMaths.o\
-FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o\
-QuadrangleDistort.o\
-TranslateMapPluginFactory.o TranslateMapPlugin.o\
-CornerPinPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o
-# MeshWarp.o\
+FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o
 
 SRCDIR = ..
 
@@ -21,16 +20,15 @@ $(SRCDIR)/FaceTrack/shape_predictor_68_face_landmarks.dat
 include $(SRCDIR)/Makefile.master
 
 VPATH += \
+$(SRCDIR)/TriangleMaths\
+$(SRCDIR)/QuadrangleDistort\
+$(SRCDIR)/CornerPin\
 $(SRCDIR)/PatchMatch\
 $(SRCDIR)/OffsetMap\
+$(SRCDIR)/TranslateMap\
 $(SRCDIR)/FaceTrackPluginBase\
 $(SRCDIR)/FaceTrack\
-$(SRCDIR)/TriangleMaths\
-$(SRCDIR)/MeshWarp\
-$(SRCDIR)/FaceTranslationMap\
-$(SRCDIR)/QuadrangleDistort\
-$(SRCDIR)/TranslateMap\
-$(SRCDIR)/CornerPin
+$(SRCDIR)/FaceTranslationMap
 
 CXXFLAGS += `pkg-config --cflags dlib-1`
 LINKFLAGS += `pkg-config --libs dlib-1`

@@ -29,6 +29,8 @@ protected:
 
     void trackClipAtTime(Clip* clip, FaceParams* faceParams, double t);
 
+    void improveFaceByReferenceAtTime(Clip* clip, FaceParams* faceParams, double t, double refT);
+
     void addFaceParamsToSlaveTo(OverlayInteract* interact, FaceParams* faceParams);
 
 private:

@@ -1,9 +1,9 @@
-#define kPluginName "AJPTCornerPin"
+#define kPluginName "SplidjeCornerPin"
 #define kPluginGrouping "Transform"
 #define kPluginDescription \
-"AJPT CornerPin"
+"splidje CornerPin"
 
-#define kPluginIdentifier "com.ajptechnical.openfx.AJPTCornerPin"
+#define kPluginIdentifier "com.ajptechnical.splidje.openfx.SplidjeCornerPin"
 #define kPluginVersionMajor 0
 #define kPluginVersionMinor 1
 

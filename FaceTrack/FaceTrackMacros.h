@@ -2,7 +2,7 @@
 #define kPluginGrouping "Transform"
 #define kPluginDescription "Face tracking"
 
-#define kPluginIdentifier "com.ajptechnical.openfx.FaceTrack"
+#define kPluginIdentifier "com.ajptechnical.splidje.openfx.FaceTrack"
 #define kPluginVersionMajor 0
 #define kPluginVersionMinor 1
 

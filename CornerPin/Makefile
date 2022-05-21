@@ -1,5 +1,5 @@
 PLUGINOBJECTS = CornerPingPluginFactory.o CornerPinPlugin.o CornerPinPluginInteract.o
-PLUGINNAME = AJPTCornerPin
+PLUGINNAME = SplidjeCornerPin
 RESOURCES =
 
 SRCDIR = ..
