@@ -57,6 +57,26 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
 
     PageParamDescriptor *page = desc.definePageParam("Controls");
     {
+        auto param = desc.defineChoiceParam(kParamCurve);
+        param->setLabel(kParamCurveLabel);
+        param->setHint(kParamCurveHint);
+        param->appendOption("Gamma");
+        param->appendOption("S-Curve");
+        param->setAnimates(false);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineIntParam(kParamSamples);
+        param->setLabel(kParamSamplesLabel);
+        param->setHint(kParamSamplesHint);
+        param->setDefault(1000);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
         auto param = desc.defineIntParam(kParamIterations);
         param->setLabel(kParamIterationsLabel);
         param->setHint(kParamIterationsHint);
@@ -74,10 +94,29 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
         }
     }
     {
+        auto param = desc.defineRGBAParam(kParamBlackPoint);
+        param->setLabel(kParamBlackPointLabel);
+        param->setHint(kParamBlackPointHint);
+        param->setDefault(0, 0, 0, 0);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamWhitePoint);
+        param->setLabel(kParamWhitePointLabel);
+        param->setHint(kParamWhitePointHint);
+        param->setDefault(1, 1, 1, 1);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
         auto param = desc.defineRGBAParam(kParamCentrePoint);
         param->setLabel(kParamCentrePointLabel);
         param->setHint(kParamCentrePointHint);
         param->setDefault(0.5, 0.5, 0.5, 0.5);
+        param->setIsSecretAndDisabled(true);
         if (page) {
             page->addChild(*param);
         }
@@ -87,6 +126,7 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
         param->setLabel(kParamSlopeLabel);
         param->setHint(kParamSlopeHint);
         param->setDefault(1, 1, 1, 1);
+        param->setIsSecretAndDisabled(true);
         if (page) {
             page->addChild(*param);
         }

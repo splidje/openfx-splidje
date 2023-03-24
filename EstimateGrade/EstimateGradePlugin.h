@@ -16,6 +16,14 @@ using namespace OFX;
 #define kSourceClip "Source"
 #define kTargetClip "Target"
 
+#define kParamCurve "curve"
+#define kParamCurveLabel "Curve"
+#define kParamCurveHint "Curve"
+
+#define kParamSamples "samples"
+#define kParamSamplesLabel "Samples"
+#define kParamSamplesHint "Samples"
+
 #define kParamIterations "iterations"
 #define kParamIterationsLabel "Iterations"
 #define kParamIterationsHint "Iterations"
@@ -23,6 +31,14 @@ using namespace OFX;
 #define kParamEstimate "estimate"
 #define kParamEstimateLabel "Estimate"
 #define kParamEstimateHint "Estimate"
+
+#define kParamBlackPoint "blackPoint"
+#define kParamBlackPointLabel "Black Point"
+#define kParamBlackPointHint "Black Point"
+
+#define kParamWhitePoint "whitePoint"
+#define kParamWhitePointLabel "White Point"
+#define kParamWhitePointHint "White Point"
 
 #define kParamCentrePoint "centrePoint"
 #define kParamCentrePointLabel "Centre Point"
@@ -62,8 +78,12 @@ private:
     Clip* _srcClip;
     Clip* _trgClip;
     Clip* _dstClip;
+    ChoiceParam* _curve;
+    IntParam* _samples;
     IntParam* _iterations;
     PushButtonParam* _estimate;
+    RGBAParam* _whitePoint;
+    RGBAParam* _blackPoint;
     RGBAParam* _centrePoint;
     RGBAParam* _slope;
     RGBAParam* _gamma;
