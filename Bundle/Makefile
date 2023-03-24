@@ -9,7 +9,8 @@ OffsetMapPluginFactory.o OffsetMapPlugin.o\
 TranslateMapPluginFactory.o TranslateMapPlugin.o\
 FaceTrackPluginBase.o\
 FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackPluginInteract.o\
-FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o
+FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o\
+EstimateGradePluginFactory.o EstimateGradePlugin.o
 
 SRCDIR = ..
 
@@ -28,7 +29,8 @@ $(SRCDIR)/OffsetMap\
 $(SRCDIR)/TranslateMap\
 $(SRCDIR)/FaceTrackPluginBase\
 $(SRCDIR)/FaceTrack\
-$(SRCDIR)/FaceTranslationMap
+$(SRCDIR)/FaceTranslationMap\
+$(SRCDIR)/EstimateGrade
 
-CXXFLAGS += `pkg-config --cflags dlib-1`
-LINKFLAGS += `pkg-config --libs dlib-1`
+CXXFLAGS += `pkg-config --cflags dlib-1 gsl`
+LINKFLAGS += `pkg-config --libs dlib-1 gsl`
