@@ -85,7 +85,16 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
     {
         auto param = desc.defineRGBAParam(kParamSlope);
         param->setLabel(kParamSlopeLabel);
-        param->setHint(kParamCentrePointHint);
+        param->setHint(kParamSlopeHint);
+        param->setDefault(1, 1, 1, 1);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamGamma);
+        param->setLabel(kParamGammaLabel);
+        param->setHint(kParamGammaHint);
         param->setDefault(1, 1, 1, 1);
         if (page) {
             page->addChild(*param);

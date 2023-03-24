@@ -8,10 +8,6 @@
 #define SRC_COUNT 1000
 
 
-bool _rgbaColoursEq(OfxRGBAColourD lhs, OfxRGBAColourD rhs) {
-    return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
-}
-
 EstimateGradePlugin::EstimateGradePlugin(OfxImageEffectHandle handle)
     : ImageEffect(handle)
 {
@@ -43,6 +39,7 @@ EstimateGradePlugin::EstimateGradePlugin(OfxImageEffectHandle handle)
     _estimate = fetchPushButtonParam(kParamEstimate);
     _centrePoint = fetchRGBAParam(kParamCentrePoint);
     _slope = fetchRGBAParam(kParamSlope);
+    _gamma = fetchRGBAParam(kParamGamma);
 }
 
 bool EstimateGradePlugin::isIdentity(const IsIdentityArguments &args, 
@@ -56,18 +53,22 @@ bool EstimateGradePlugin::isIdentity(const IsIdentityArguments &args,
     return false;
 }
 
-double _sCurve(double srcVal, double centrePoint, double slope) {
-    return 1 / (1 + exp(-slope * (srcVal - centrePoint)));
+double _sCurve(double srcVal, double centrePoint, double slope, double gamma) {
+    return pow(1 / (1 + exp(-slope * (srcVal - centrePoint))), gamma);
 }
 
 void EstimateGradePlugin::render(const RenderArguments &args)
 {
-    auto_ptr<Image> srcImg(_srcClip->fetchImage(args.time));
-    auto_ptr<Image> dstImg(_dstClip->fetchImage(args.time));
+    std::unique_ptr<Image> srcImg(_srcClip->fetchImage(args.time));
+    std::unique_ptr<Image> dstImg(_dstClip->fetchImage(args.time));
     auto components = srcImg->getPixelComponentCount();
 
-    auto centrePoint = _centrePoint->getValueAtTime(args.time);
-    auto slope = _slope->getValueAtTime(args.time);
+    auto centrePointRGBA = _centrePoint->getValueAtTime(args.time);
+    auto centrePoint = reinterpret_cast<double*>(&centrePointRGBA);
+    auto slopeRGBA = _slope->getValueAtTime(args.time);
+    auto slope = reinterpret_cast<double*>(&slopeRGBA);
+    auto gammaRGBA = _gamma->getValueAtTime(args.time);
+    auto gamma = reinterpret_cast<double*>(&gammaRGBA);
 
     for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {        
         for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
@@ -75,13 +76,7 @@ void EstimateGradePlugin::render(const RenderArguments &args)
             auto dstPix = (float*)dstImg->getPixelAddress(x, y);
             if (!srcPix || !dstPix) {continue;}
             for (int c=0; c < components; c++, srcPix++, dstPix++) {
-                // auto bp = (c == 0) ? blackPoint.r : ((c==1) ? blackPoint.g : ((c==2) ? blackPoint.b : blackPoint.a));
-                // auto wp = (c == 0) ? whitePoint.r : ((c==1) ? whitePoint.g : ((c==2) ? whitePoint.b : whitePoint.a));
-                // auto g = (c == 0) ? gamma.r : ((c==1) ? gamma.g : ((c==2) ? gamma.b : gamma.a));
-                // *dstPix = pow((*srcPix - bp) / (wp - bp), 1/g);
-                auto cp = (c == 0) ? centrePoint.r : ((c==1) ? centrePoint.g : ((c==2) ? centrePoint.b : centrePoint.a));
-                auto s = (c == 0) ? slope.r : ((c==1) ? slope.g : ((c==2) ? slope.b : slope.a));
-                *dstPix = _sCurve(*srcPix, cp, s);
+                *dstPix = _sCurve(*srcPix, centrePoint[c], slope[c], gamma[c]);
             }
         }
     }
@@ -97,13 +92,14 @@ void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const st
 int _sCurveFunction(const gsl_vector *x, void *data, gsl_vector *f) {
     double centrePoint = gsl_vector_get(x, 0);
     double slope = gsl_vector_get(x, 1);
+    double gamma = gsl_vector_get(x, 2);
 
     auto srcAndTrg = (std::vector<OfxPointD>*)data;
 
     for (int i = 0; i < srcAndTrg->size(); i++) {
         auto srcVal = (*srcAndTrg)[i].x;
         auto trgVal = (*srcAndTrg)[i].y;
-        gsl_vector_set(f, i, _sCurve(srcVal, centrePoint, slope) - trgVal);
+        gsl_vector_set(f, i, _sCurve(srcVal, centrePoint, slope, gamma) - trgVal);
     }
 
     return GSL_SUCCESS;
@@ -112,30 +108,32 @@ int _sCurveFunction(const gsl_vector *x, void *data, gsl_vector *f) {
 int _sCurveDerivative(const gsl_vector *x, void *data, gsl_matrix *J) {
     double centrePoint = gsl_vector_get(x, 0);
     double slope = gsl_vector_get(x, 1);
+    double gamma = gsl_vector_get(x, 2);
 
     auto srcAndTrg = (std::vector<OfxPointD>*)data;
 
-    // printf("J: %ld %ld\n", J->size1, J->size2);
-
     for (int i = 0; i < srcAndTrg->size(); i++) {
         auto srcVal = (*srcAndTrg)[i].x;
+        auto offExpr = srcVal - centrePoint;
+        auto expExpr = exp(-slope * offExpr);
+        auto invExpr = 1 / (1 + expExpr);
+        auto powExpr = pow(invExpr, gamma);
+        auto powPlusExpr = invExpr * powExpr;
+        // centrePoint partial derivative
         gsl_matrix_set(
             J, i, 0,
-            - (
-                (slope * exp(-slope * (srcVal - centrePoint)))
-                / pow(exp(-slope * (srcVal - centrePoint)) + 1, 2)
-            )
+            -gamma * slope * expExpr * powPlusExpr
         );
+        // slope partial derivative
         gsl_matrix_set(
             J, i, 1,
-            - (
-                (centrePoint - srcVal) * exp(-slope * (srcVal - centrePoint))
-                / pow(exp(-slope * (srcVal - centrePoint)) + 1, 2)
-            )
+            gamma * offExpr * expExpr * powPlusExpr
         );
-        // if (i < 20) {
-        //     printf("J %d: %f %f\n", i, gsl_matrix_get(J, i, 0), gsl_matrix_get(J, i, 1));
-        // }
+        // gamma partial derivative
+        gsl_matrix_set(
+            J, i, 2,
+            powExpr * log(invExpr)
+        );
     }
 
     return GSL_SUCCESS;
@@ -199,40 +197,43 @@ void EstimateGradePlugin::estimate(double time) {
 
     double centrePoint[4];
     double slope[4];
+    double gamma[4];
 
     for (int c=0; c < components; c++) {
         auto srcAndTrgPtr = &(srcAndTrgs[c]);
         printf("count %d: %ld\n", c, srcAndTrgPtr->size());
 
         gsl_multifit_nlinear_parameters fdfParams = gsl_multifit_nlinear_default_parameters();
-        gsl_multifit_nlinear_workspace * w = gsl_multifit_nlinear_alloc(T, &fdfParams, srcAndTrgPtr->size(), 2);
+        gsl_multifit_nlinear_workspace * w = gsl_multifit_nlinear_alloc(T, &fdfParams, srcAndTrgPtr->size(), 3);
         gsl_multifit_nlinear_fdf fdf;
 
         fdf.f = &_sCurveFunction;
         fdf.df = &_sCurveDerivative;
         fdf.n = srcAndTrgPtr->size();
-        fdf.p = 2;
+        fdf.p = 3;
         fdf.params = srcAndTrgPtr;
         
-        double start[2] = {0.5, 1.0};
-        gsl_vector_view startView = gsl_vector_view_array(start, 2);
-        auto_ptr<double> weights(new double[srcAndTrgPtr->size()]);
+        double start[3] = {0.5, 1.0, 1.0};
+        gsl_vector_view startView = gsl_vector_view_array(start, 3);
+        std::unique_ptr<double> weights(new double[srcAndTrgPtr->size()]);
         for (int i=0; i < srcAndTrgPtr->size(); i++) {weights.get()[i] = 1;}
         gsl_vector_view weightsView = gsl_vector_view_array(weights.get(), srcAndTrgPtr->size());
 
         gsl_multifit_nlinear_winit(&startView.vector, &weightsView.vector, &fdf, w);
 
         int info;
-        auto status = gsl_multifit_nlinear_driver(_iterations->getValue(), 1e-8, 1e-8, 1e-8, NULL, NULL, &info, w);
+        auto status = gsl_multifit_nlinear_driver(_iterations->getValue(), 1e-6, 1e-6, 1e-6, NULL, NULL, &info, w);
 
         centrePoint[c] = gsl_vector_get(w->x, 0);
         slope[c] = gsl_vector_get(w->x, 1);
+        gamma[c] = gsl_vector_get(w->x, 2);
 
-        printf("done %d: %d. %f %f\n", c, status, centrePoint[c], slope[c]);
+        printf("done %d: %d. %f %f %f\n", c, status, centrePoint[c], slope[c], gamma[c]);
 
         gsl_multifit_nlinear_free(w);
     }
 
     _centrePoint->setValue(centrePoint[0], centrePoint[1], centrePoint[2], centrePoint[3]);
     _slope->setValue(slope[0], slope[1], slope[2], slope[3]);
+    _gamma->setValue(gamma[0], gamma[1], gamma[2], gamma[3]);
 }

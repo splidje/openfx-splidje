@@ -32,6 +32,10 @@ using namespace OFX;
 #define kParamSlopeLabel "Slope"
 #define kParamSlopeHint "Slope"
 
+#define kParamGamma "gamma"
+#define kParamGammaLabel "Gamma"
+#define kParamGammaHint "Gamma"
+
 
 class EstimateGradePlugin : public ImageEffect
 {
@@ -62,4 +66,5 @@ private:
     PushButtonParam* _estimate;
     RGBAParam* _centrePoint;
     RGBAParam* _slope;
+    RGBAParam* _gamma;
 };
