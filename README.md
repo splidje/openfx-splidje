@@ -1,6 +1,12 @@
 # Splidje OpenFX Effects
 Various OpenFX Effects. Currently all still work-in-progress
 
+## EstimateGrade
+
+You plug in two images which spatially line-up - source and target. You know that source was graded in some way to generate target.
+You choose whether you think the curve used was a gamma curve with black and white point, or an S-curve with centre point, slope and gamma.
+EstimateGrade does some non-linear curve fitting to work out what the grade may have been, and then processes that grade on source to demonstrate its estimate.
+
 ## splidjeCornerPin
 
 Well, perhaps not _quite_ what CornerPin should do. Uses an internal QuadrangleDistort library. It distorts a quadrangle, what can I say!
