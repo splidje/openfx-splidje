@@ -57,11 +57,12 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
 
     PageParamDescriptor *page = desc.definePageParam("Controls");
     {
-        auto param = desc.defineChoiceParam(kParamCurve);
-        param->setLabel(kParamCurveLabel);
-        param->setHint(kParamCurveHint);
+        auto param = desc.defineChoiceParam(kParamMapping);
+        param->setLabel(kParamMappingLabel);
+        param->setHint(kParamMappingHint);
         param->appendOption("Gamma");
         param->appendOption("S-Curve");
+        param->appendOption("Matrix");
         param->setAnimates(false);
         if (page) {
             page->addChild(*param);
@@ -136,6 +137,46 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
         param->setLabel(kParamGammaLabel);
         param->setHint(kParamGammaHint);
         param->setDefault(1, 1, 1, 1);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamMatrixRed);
+        param->setLabel(kParamMatrixRedLabel);
+        param->setHint(kParamMatrixRedHint);
+        param->setDefault(1, 0, 0, 0);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamMatrixGreen);
+        param->setLabel(kParamMatrixGreenLabel);
+        param->setHint(kParamMatrixGreenHint);
+        param->setDefault(0, 1, 0, 0);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamMatrixBlue);
+        param->setLabel(kParamMatrixBlueLabel);
+        param->setHint(kParamMatrixBlueHint);
+        param->setDefault(0, 0, 1, 0);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamMatrixAlpha);
+        param->setLabel(kParamMatrixAlphaLabel);
+        param->setHint(kParamMatrixAlphaHint);
+        param->setDefault(0, 0, 0, 1);
+        param->setIsSecretAndDisabled(true);
         if (page) {
             page->addChild(*param);
         }
