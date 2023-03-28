@@ -16,9 +16,9 @@ using namespace OFX;
 #define kSourceClip "Source"
 #define kTargetClip "Target"
 
-#define kParamCurve "curve"
-#define kParamCurveLabel "Curve"
-#define kParamCurveHint "Curve"
+#define kParamMapping "mapping"
+#define kParamMappingLabel "Mapping"
+#define kParamMappingHint "Mapping"
 
 #define kParamSamples "samples"
 #define kParamSamplesLabel "Samples"
@@ -52,6 +52,22 @@ using namespace OFX;
 #define kParamGammaLabel "Gamma"
 #define kParamGammaHint "Gamma"
 
+#define kParamMatrixRed "matrixRed"
+#define kParamMatrixRedLabel "Matrix Red"
+#define kParamMatrixRedHint "Matrix Red"
+
+#define kParamMatrixGreen "matrixGreen"
+#define kParamMatrixGreenLabel "Matrix Green"
+#define kParamMatrixGreenHint "Matrix Green"
+
+#define kParamMatrixBlue "matrixBlue"
+#define kParamMatrixBlueLabel "Matrix Blue"
+#define kParamMatrixBlueHint "Matrix Blue"
+
+#define kParamMatrixAlpha "matrixAlpha"
+#define kParamMatrixAlphaLabel "Matrix Alpha"
+#define kParamMatrixAlphaHint "Matrix Alpha"
+
 
 class EstimateGradePlugin : public ImageEffect
 {
@@ -61,6 +77,9 @@ public:
 private:
     /* Override the render */
     virtual void render(const OFX::RenderArguments &args) OVERRIDE FINAL;
+
+    void renderCurve(const RenderArguments &args, int mapping, Image* srcImg, Image* dstImg, int components);
+    void renderMatrix(const RenderArguments &args, Image* srcImg, Image* dstImg, int components);
     
     virtual bool isIdentity(const IsIdentityArguments &args, Clip * &identityClip, double &identityTime
 #ifdef OFX_EXTENSIONS_NUKE
@@ -73,12 +92,15 @@ private:
 
     virtual void estimate(double time);
 
+    void estimateCurve(double time, int mapping, int samples, int iterations, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale);
+    void estimateMatrix(double time, int samples, int iterations, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale);
+
 
 private:
     Clip* _srcClip;
     Clip* _trgClip;
     Clip* _dstClip;
-    ChoiceParam* _curve;
+    ChoiceParam* _mapping;
     IntParam* _samples;
     IntParam* _iterations;
     PushButtonParam* _estimate;
@@ -87,4 +109,8 @@ private:
     RGBAParam* _centrePoint;
     RGBAParam* _slope;
     RGBAParam* _gamma;
+    RGBAParam* _matrixRed;
+    RGBAParam* _matrixGreen;
+    RGBAParam* _matrixBlue;
+    RGBAParam* _matrixAlpha;
 };
