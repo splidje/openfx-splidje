@@ -38,7 +38,7 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
     srcClip->setSupportsTiles(true);
     srcClip->setIsMask(false);
 
-    // create the mandated offsets clip
+    // create the optional target clip
     ClipDescriptor *trgClip = desc.defineClip(kTargetClip);
     trgClip->addSupportedComponent(ePixelComponentRGB);
     trgClip->addSupportedComponent(ePixelComponentRGBA);
@@ -46,6 +46,7 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
     trgClip->setTemporalClipAccess(false);
     trgClip->setSupportsTiles(true);
     trgClip->setIsMask(false);
+    trgClip->setOptional(true);
 
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);

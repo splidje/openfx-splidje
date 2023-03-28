@@ -297,8 +297,12 @@ void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const st
 }
 
 void EstimateGradePlugin::estimate(double time) {
+    progressStart("Estimating");
+    progressUpdate(0);
     std::unique_ptr<Image> srcImg(_srcClip->fetchImage(time));
+    progressUpdate(0.1);
     std::unique_ptr<Image> trgImg(_trgClip->fetchImage(time));
+    progressUpdate(0.2);
     auto srcROD = srcImg->getRegionOfDefinition();
     auto trgROD = trgImg->getRegionOfDefinition();
     auto horizScale = trgImg->getPixelAspectRatio() / srcImg->getPixelAspectRatio();
@@ -323,8 +327,8 @@ void EstimateGradePlugin::estimate(double time) {
             estimateMatrix(time, samples, iterations, srcImg.get(), trgImg.get(), components, isect, horizScale);
             break;
     }
-    
 
+    progressEnd();
 }
 
 void EstimateGradePlugin::estimateCurve(
@@ -465,8 +469,14 @@ void EstimateGradePlugin::estimateMatrix(
             if (!srcPix || !trgPix) {continue;}
             double* srcVal = new double[4];
             double* trgVal = new double[4];
+            bool skip = false;
             for (int c=0; c < 4; c++, srcPix++, trgPix++) {
                 if (c < components) {
+                    if (std::isnan(*srcPix) || std::isnan(*trgPix)) {
+                        std::cout << "nan detected" << x << "," << y << ";" << c << std::endl;
+                        skip = true;
+                        break;
+                    }
                     srcVal[c] = *srcPix;
                     trgVal[c] = *trgPix;
                 } else {
@@ -474,6 +484,7 @@ void EstimateGradePlugin::estimateMatrix(
                     trgVal[c] = 0;
                 }
             }
+            if (skip) {continue;}
             srcVals.push_back(std::unique_ptr<double>(srcVal));
             trgVals.push_back(std::unique_ptr<double>(trgVal));
         }
@@ -489,24 +500,36 @@ void EstimateGradePlugin::estimateMatrix(
         }
     }
 
+    progressUpdate(0.4);
+
     gsl_matrix *srcTransMat = gsl_matrix_alloc(srcMat->size2, srcMat->size1);
     gsl_matrix_transpose_memcpy(srcTransMat, srcMat);
 
     gsl_matrix *srcSqMat = gsl_matrix_alloc(srcMat->size1, srcMat->size1);
     gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1, srcMat, srcTransMat, 0, srcSqMat);
 
+    progressUpdate(0.5);
+
     int signum;
     gsl_permutation* perm = gsl_permutation_alloc(srcMat->size1);
     gsl_linalg_LU_decomp(srcSqMat, perm, &signum);
 
+    progressUpdate(0.6);
+
     gsl_matrix *srcSqInvMat = gsl_matrix_alloc(srcSqMat->size1, srcSqMat->size1);
     gsl_linalg_LU_invert(srcSqMat, perm, srcSqInvMat);
+
+    progressUpdate(0.7);
 
     gsl_matrix *trgSrcMat = gsl_matrix_alloc(srcMat->size1, srcMat->size1);
     gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1, trgMat, srcTransMat, 0, trgSrcMat);
 
+    progressUpdate(0.8);
+
     gsl_matrix *resMat = gsl_matrix_alloc(srcMat->size1, srcMat->size1);
     gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1, trgSrcMat, srcSqInvMat, 0, resMat);
+
+    progressUpdate(0.9);
 
     std::cout << "M = ";
     for (size_t i = 0; i < resMat->size1; ++i) {
@@ -514,6 +537,7 @@ void EstimateGradePlugin::estimateMatrix(
         for (size_t j = 0; j < resMat->size2; ++j) {
             auto val = gsl_matrix_get(resMat, i, j);
             std::cout << val << " ";
+            std::cout.flush();
             switch (j) {
                 case 0: col.r = val; break;
                 case 1: col.g = val; break;
