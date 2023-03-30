@@ -68,6 +68,22 @@ using namespace OFX;
 #define kParamMatrixAlphaLabel "Matrix Alpha"
 #define kParamMatrixAlphaHint "Matrix Alpha"
 
+#define kParamX1 "x1"
+
+#define kParamY1 "y1"
+
+#define kParamSlope1 "slope1"
+
+#define kParamX2 "x2"
+
+#define kParamY2 "y2"
+
+#define kParamX3 "x3"
+
+#define kParamY3 "y3"
+
+#define kParamSlope3 "slope3"
+
 
 class EstimateGradePlugin : public ImageEffect
 {
@@ -113,4 +129,12 @@ private:
     RGBAParam* _matrixGreen;
     RGBAParam* _matrixBlue;
     RGBAParam* _matrixAlpha;
+    RGBAParam* _x1;
+    RGBAParam* _y1;
+    RGBAParam* _slope1;
+    RGBAParam* _x2;
+    RGBAParam* _y2;
+    RGBAParam* _x3;
+    RGBAParam* _y3;
+    RGBAParam* _slope3;
 };

@@ -48,6 +48,14 @@ EstimateGradePlugin::EstimateGradePlugin(OfxImageEffectHandle handle)
     _matrixGreen = fetchRGBAParam(kParamMatrixGreen);
     _matrixBlue = fetchRGBAParam(kParamMatrixBlue);
     _matrixAlpha = fetchRGBAParam(kParamMatrixAlpha);
+    _x1 = fetchRGBAParam(kParamX1);
+    _y1 = fetchRGBAParam(kParamY1);
+    _slope1 = fetchRGBAParam(kParamSlope1);
+    _x2 = fetchRGBAParam(kParamX2);
+    _y2 = fetchRGBAParam(kParamY2);
+    _x3 = fetchRGBAParam(kParamX3);
+    _y3 = fetchRGBAParam(kParamY3);
+    _slope3 = fetchRGBAParam(kParamSlope3);
 }
 
 bool EstimateGradePlugin::isIdentity(const IsIdentityArguments &args, 
@@ -167,6 +175,158 @@ int _sCurveMappingDerivative(const gsl_vector *x, void *data, gsl_matrix *J) {
     return GSL_SUCCESS;
 }
 
+void _calc3PointCurveCoeffs(
+    double x1, double y1, double slope1, double x2, double y2, double x3, double y3, double slope3,
+    double* a1, double* b1, double* c1, double* d1,
+    double* a2, double* b2, double* c2, double* d2
+) {
+    *a1 = (
+        1.0/2.0*(
+            (slope1 - slope3)*pow(x2, 3) - slope1* x2 * pow(x3, 2) + (
+                (2*slope1 - slope3)*x2 - (2*slope1 - slope3)*x3 + 3*y2 - 3*y3
+            )*pow(x1, 2) + (slope3*x3 - 3*y3)*pow(x2, 2) - (
+                (3*slope1 - 2*slope3)*pow(x2, 2) - slope1*pow(x3, 2) - 2*(
+                    (slope1 - slope3)*x3 + 3*y3
+                )*x2 + 2*(x2 + 2*x3)*y2
+            )*x1 - (
+                4*x1*(x2 - x3)
+                - 3*pow(x2, 2) + 2*x2*x3 + pow(x3, 2)
+            )*y1 + (2*x2*x3 + pow(x3, 2))*y2
+        )/(
+            pow(x1, 4)*(x2 - x3)
+            + pow(x2, 4)*x3
+            - pow(x2, 3)*pow(x3, 2)
+            - (
+                3*pow(x2, 2)
+                - 2*x2*x3
+                - pow(x3, 2)
+            )*pow(x1, 3)
+            + 3*(
+                pow(x2, 3) - x2*pow(x3, 2)
+            )*pow(x1, 2)
+            - (
+                pow(x2, 4) + 2*pow(x2, 3)*x3
+                - 3*pow(x2, 2)*pow(x3, 2)
+            )*x1
+        )
+    );
+    *b1 = (
+        -1.0/2.0*(
+            (slope1 - slope3)*pow(x2, 4) - 3*slope1*pow(x2, 2)*pow(x3, 2) + 2*(
+                (slope1 - slope3)*x2 - (slope1 - slope3)*x3 + 3*y2 - 3*y3
+            )*pow(x1, 3) + (
+                (2*slope1 + slope3)*x3 - 3*y3
+            )*pow(x2, 3) + 3*x2*pow(x3, 2)*y2 + 3*(
+                slope3*pow(x2, 2) - (
+                    slope3*x3 - 3*y3
+                )*x2 - (x2 + 2*x3)*y2
+            )*pow(x1, 2) - 3*(
+                slope1*pow(x2, 3) - slope1*x2*pow(x3, 2)
+            )*x1 - 3*(
+                2*pow(x1, 2)*(x2 - x3)
+                - pow(x2, 3) + x2*pow(x3, 2)
+            )*y1
+        )/(
+            pow(x1, 4)*(x2 - x3)
+            + pow(x2, 4)*x3 - pow(x2, 3)*pow(x3, 2)
+            - (
+                3*pow(x2, 2) - 2*x2*x3 - pow(x3, 2)
+            )*pow(x1, 3) + 3*(
+                pow(x2, 3) - x2*pow(x3, 2)
+            )*pow(x1, 2)
+            - (
+                pow(x2, 4) + 2*pow(x2, 3)*x3
+                - 3*pow(x2, 2)*pow(x3, 2)
+            )*x1
+        )
+    );
+    *c1 = (
+        1.0/2.0*(
+            2*slope1*pow(x2, 4)*x3 - 2*slope1*pow(x2, 3)*pow(x3, 2) - (
+                slope3*x2 - slope3*x3 - 3*y2 + 3*y3
+            )*pow(x1, 4) + (
+                3*slope1*pow(x2, 2) - 2*slope1*x2*x3 - slope1*pow(x3, 2)
+            )*pow(x1, 3) - 3*((slope1 - slope3)*pow(x2, 3)
+            - slope1*x2*pow(x3, 2) + (slope3*x3 - 3*y3)*pow(x2, 2)
+            + (2*x2*x3 + pow(x3, 2))*y2)*pow(x1, 2) - 2*(
+                slope3*pow(x2, 4) - (slope3*x3 - 3*y3)*pow(x2, 3) - 3*x2*pow(x3, 2)*y2
+            )*x1 - 3*(
+                (3*pow(x2, 2) - 2*x2*x3 - pow(x3, 2)
+            )*pow(x1, 2) - 2*(pow(x2, 3) - x2*pow(x3, 2))*x1)*y1
+        )/(
+            pow(x1, 4)*(x2 - x3)
+            + pow(x2, 4)*x3 - pow(x2, 3)*pow(x3, 2)
+            - (3*pow(x2, 2) - 2*x2*x3 - pow(x3, 2))*pow(x1, 3)
+            + 3*(pow(x2, 3) - x2*pow(x3, 2))*pow(x1, 2) - (
+                pow(x2, 4) + 2*pow(x2, 3)*x3 - 3*pow(x2, 2)*pow(x3, 2)
+            )*x1
+        )
+    );
+    *d1 = (
+        1.0/2.0*((slope3*pow(x2, 2) - (slope3*x3 - 3*y3)*x2 - (x2 + 2*x3)*y2)*pow(x1, 4) - ((slope1 + 2*slope3)*pow(x2, 3) - slope1*x2*pow(x3, 2) - 2*(slope3*x3 - 3*y3)*pow(x2, 2) - 2*(2*x2*x3 + pow(x3, 2))*y2)*pow(x1, 3) + ((slope1 + slope3)*pow(x2, 4) - 3*slope1*pow(x2, 2)*pow(x3, 2) + ((2*slope1 - slope3)*x3 + 3*y3)*pow(x2, 3) - 3*x2*pow(x3, 2)*y2)*pow(x1, 2) - 2*(slope1*pow(x2, 4)*x3 - slope1*pow(x2, 3)*pow(x3, 2))*x1 + (2*pow(x2, 4)*x3 - 2*pow(x2, 3)*pow(x3, 2) + 3*(pow(x2, 3) - x2*pow(x3, 2))*pow(x1, 2) - 2*(pow(x2, 4) + 2*pow(x2, 3)*x3 - 3*pow(x2, 2)*pow(x3, 2))*x1)*y1)/(pow(x1, 4)*(x2 - x3) + pow(x2, 4)*x3 - pow(x2, 3)*pow(x3, 2) - (3*pow(x2, 2) - 2*x2*x3 - pow(x3, 2))*pow(x1, 3) + 3*(pow(x2, 3) - x2*pow(x3, 2))*pow(x1, 2) - (pow(x2, 4) + 2*pow(x2, 3)*x3 - 3*pow(x2, 2)*pow(x3, 2))*x1)
+    );
+    *a2 = (
+        1.0/2.0*((slope1 - slope3)*pow(x2, 3) + (slope3*x2 - slope3*x3 - y2 + y3)*pow(x1, 2) - ((2*slope1 - 3*slope3)*x3 + 3*y3)*pow(x2, 2) - (slope1*pow(x2, 2) + (slope1 - 2*slope3)*pow(x3, 2) - 2*((slope1 - slope3)*x3 + y3)*x2 + 2*(x2 - 2*x3)*y2 + 4*x3*y3)*x1 + ((slope1 - 2*slope3)*pow(x3, 2) + 4*x3*y3)*x2 + 3*(pow(x2, 2) - 2*x2*x3 + pow(x3, 2))*y1 + (2*x2*x3 - 3*pow(x3, 2))*y2)/(pow(x2, 4)*x3 - 3*pow(x2, 3)*pow(x3, 2) + 3*pow(x2, 2)*pow(x3, 3) - x2*pow(x3, 4) + (pow(x2, 3) - 3*pow(x2, 2)*x3 + 3*x2*pow(x3, 2) - pow(x3, 3))*pow(x1, 2) - (pow(x2, 4) - 2*pow(x2, 3)*x3 + 2*x2*pow(x3, 3) - pow(x3, 4))*x1)
+    );
+    *b2 = (
+        -1.0/2.0*((slope1 - slope3)*pow(x2, 4) - 3*slope1*pow(x2, 2)*pow(x3, 2) + 3*(slope3*x3 - y3)*pow(x2, 3) + 3*(slope3*pow(x2, 2) - (slope3*x3 - y3)*x2 - x2*y2)*pow(x1, 2) - ((slope1 + 2*slope3)*pow(x2, 3) - 3*slope1*x2*pow(x3, 2) + 2*(slope1 - slope3)*pow(x3, 3) - 6*pow(x3, 2)*y2 + 6*pow(x3, 2)*y3)*x1 + 2*((slope1 - slope3)*pow(x3, 3) + 3*pow(x3, 2)*y3)*x2 + 3*(pow(x2, 3) - 3*x2*pow(x3, 2) + 2*pow(x3, 3))*y1 + 3*(x2*pow(x3, 2) - 2*pow(x3, 3))*y2)/(pow(x2, 4)*x3 - 3*pow(x2, 3)*pow(x3, 2) + 3*pow(x2, 2)*pow(x3, 3) - x2*pow(x3, 4) + (pow(x2, 3) - 3*pow(x2, 2)*x3 + 3*x2*pow(x3, 2) - pow(x3, 3))*pow(x1, 2) - (pow(x2, 4) - 2*pow(x2, 3)*x3 + 2*x2*pow(x3, 3) - pow(x3, 4))*x1)
+    );
+    *c2 = (
+        1.0/2.0*(2*slope1*pow(x2, 4)*x3 + slope1*x2*pow(x3, 4) - 3*pow(x3, 4)*y2 - 3*((slope1 - slope3)*pow(x3, 2) + 2*x3*y3)*pow(x2, 3) + (2*slope3*pow(x2, 3) + slope3*pow(x3, 3) - 3*pow(x3, 2)*y3 - 3*(slope3*pow(x3, 2) - 2*x3*y3)*x2 - 3*(2*x2*x3 - pow(x3, 2))*y2)*pow(x1, 2) - 3*(slope3*pow(x3, 3) - 3*pow(x3, 2)*y3)*pow(x2, 2) - (2*slope3*pow(x2, 4) + 2*slope1*pow(x2, 3)*x3 - 3*slope1*pow(x2, 2)*pow(x3, 2) + slope1*pow(x3, 4) - 6*x2*pow(x3, 2)*y2 - 2*(slope3*pow(x3, 3) - 3*pow(x3, 2)*y3)*x2)*x1 + 3*(2*pow(x2, 3)*x3 - 3*pow(x2, 2)*pow(x3, 2) + pow(x3, 4))*y1)/(pow(x2, 4)*x3 - 3*pow(x2, 3)*pow(x3, 2) + 3*pow(x2, 2)*pow(x3, 3) - x2*pow(x3, 4) + (pow(x2, 3) - 3*pow(x2, 2)*x3 + 3*x2*pow(x3, 2) - pow(x3, 3))*pow(x1, 2) - (pow(x2, 4) - 2*pow(x2, 3)*x3 + 2*x2*pow(x3, 3) - pow(x3, 4))*x1)
+    );
+    *d2 = (
+        -1.0/2.0*(slope1*pow(x2, 2)*pow(x3, 4) - x2*pow(x3, 4)*y2 + ((slope1 + slope3)*pow(x3, 2) - 2*x3*y3)*pow(x2, 4) - ((2*slope1 + slope3)*pow(x3, 3) - 3*pow(x3, 2)*y3)*pow(x2, 3) + (2*(slope3*x3 - y3)*pow(x2, 3) - 3*(slope3*pow(x3, 2) - 2*x3*y3)*pow(x2, 2) + (slope3*pow(x3, 3) - 3*pow(x3, 2)*y3)*x2 - (3*x2*pow(x3, 2) - 2*pow(x3, 3))*y2)*pow(x1, 2) + (2*slope1*pow(x2, 2)*pow(x3, 3) - slope1*x2*pow(x3, 4) - 2*(slope3*x3 - y3)*pow(x2, 4) - ((slope1 - 2*slope3)*pow(x3, 2) + 4*x3*y3)*pow(x2, 3) + 2*(2*x2*pow(x3, 3) - pow(x3, 4))*y2)*x1 + 3*(pow(x2, 3)*pow(x3, 2) - 2*pow(x2, 2)*pow(x3, 3) + x2*pow(x3, 4))*y1)/(pow(x2, 4)*x3 - 3*pow(x2, 3)*pow(x3, 2) + 3*pow(x2, 2)*pow(x3, 3) - x2*pow(x3, 4) + (pow(x2, 3) - 3*pow(x2, 2)*x3 + 3*x2*pow(x3, 2) - pow(x3, 3))*pow(x1, 2) - (pow(x2, 4) - 2*pow(x2, 3)*x3 + 2*x2*pow(x3, 3) - pow(x3, 4))*x1)
+    );
+}
+
+double _3PointCurveMapping(
+    double srcVal,
+    double x2,
+    double a1, double b1, double c1, double d1,
+    double a2, double b2, double c2, double d2
+) {
+    if (srcVal < x2) {
+        return a1*pow(srcVal, 3) + b1*pow(srcVal, 2) + c1*srcVal + d1;
+    } else {
+        return a2*pow(srcVal, 3) + b2*pow(srcVal, 2) + c2*srcVal + d2;
+    }
+}
+
+int _3PointCurveMappingFunction(const gsl_vector *x, void *data, gsl_vector *f) {
+    double x1 = gsl_vector_get(x, 0);
+    double y1 = gsl_vector_get(x, 1);
+    double slope1 = gsl_vector_get(x, 2);
+    double x2 = gsl_vector_get(x, 3);
+    double y2 = gsl_vector_get(x, 4);
+    double x3 = gsl_vector_get(x, 5);
+    double y3 = gsl_vector_get(x, 6);
+    double slope3 = gsl_vector_get(x, 7);
+
+    double a1, b1, c1, d1, a2, b2, c2, d2;
+
+    _calc3PointCurveCoeffs(
+        x1, y1, slope1, x2, y2, x3, y3, slope3,
+        &a1, &b1, &c1, &d1, &a2, &b2, &c2, &d2
+    );
+
+    auto srcAndTrg = (std::vector<OfxPointD>*)data;
+
+    for (int i = 0; i < srcAndTrg->size(); i++) {
+        auto srcVal = (*srcAndTrg)[i].x;
+        auto trgVal = (*srcAndTrg)[i].y;
+        gsl_vector_set(
+            f, i,
+            _3PointCurveMapping(
+                srcVal,
+                x2, a1, b1, c1, d1, a2, b2, c2, d2
+            ) - trgVal
+        );
+    }
+
+    return GSL_SUCCESS;
+}
+
+
 void _matrixMapping(const double* srcVal, const double matrix[4][4], double* dstVal) {
     for (int r=0; r < 4; r++) {
         dstVal[r] = 0;
@@ -187,9 +347,10 @@ void EstimateGradePlugin::render(const RenderArguments &args)
     switch (mapping) {
         case 0:
         case 1:
+        case 2:
             renderCurve(args, mapping, srcImg.get(), dstImg.get(), components);
             break;
-        case 2:
+        case 3:
             renderMatrix(args, srcImg.get(), dstImg.get(), components);
             break;
     }
@@ -206,6 +367,35 @@ void EstimateGradePlugin::renderCurve(const RenderArguments &args, int mapping, 
     auto slope = reinterpret_cast<double*>(&slopeRGBA);
     auto gammaRGBA = _gamma->getValueAtTime(args.time);
     auto gamma = reinterpret_cast<double*>(&gammaRGBA);
+    auto x1RGBA = _x1->getValueAtTime(args.time);
+    auto x1 = reinterpret_cast<double*>(&x1RGBA);
+    auto y1RGBA = _y1->getValueAtTime(args.time);
+    auto y1 = reinterpret_cast<double*>(&y1RGBA);
+    auto slope1RGBA = _slope1->getValueAtTime(args.time);
+    auto slope1 = reinterpret_cast<double*>(&slope1RGBA);
+    auto x2RGBA = _x2->getValueAtTime(args.time);
+    auto x2 = reinterpret_cast<double*>(&x2RGBA);
+    auto y2RGBA = _y2->getValueAtTime(args.time);
+    auto y2 = reinterpret_cast<double*>(&y2RGBA);
+    auto x3RGBA = _x3->getValueAtTime(args.time);
+    auto x3 = reinterpret_cast<double*>(&x3RGBA);
+    auto y3RGBA = _y3->getValueAtTime(args.time);
+    auto y3 = reinterpret_cast<double*>(&y3RGBA);
+    auto slope3RGBA = _slope3->getValueAtTime(args.time);
+    auto slope3 = reinterpret_cast<double*>(&slope3RGBA);
+
+    double a1[4], b1[4], c1[4], d1[4], a2[4], b2[4], c2[4], d2[4];
+
+    if (mapping == 2) {
+        for (int c=0; c < 4; c++) {
+            _calc3PointCurveCoeffs(
+                x1[c], y1[c], slope1[c], x2[c], y2[c], x3[c], y3[c], slope3[c],
+                &a1[c], &b1[c], &c1[c], &d1[c], &a2[c], &b2[c], &c2[c], &d2[c]
+            );
+            // std::cout << a1[c] << " " << b1[c] << " " << c1[c] << " " << d1[c] << std::endl;
+            // std::cout << a2[c] << " " << b2[c] << " " << c2[c] << " " << d2[c] << std::endl;
+        }
+    }
 
     for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {        
         for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
@@ -219,6 +409,11 @@ void EstimateGradePlugin::renderCurve(const RenderArguments &args, int mapping, 
                         break;
                     case 1:
                         *dstPix = _sCurveMapping(*srcPix, centrePoint[c], slope[c], gamma[c]);
+                        break;
+                    case 2:
+                        *dstPix = _3PointCurveMapping(
+                            *srcPix, x2[c], a1[c], b1[c], c1[c], d1[c], a2[c], b2[c], c2[c], d2[c]
+                        );
                         break;
                 }
             }
@@ -275,6 +470,14 @@ void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const st
         _matrixGreen->setIsSecretAndDisabled(true);
         _matrixBlue->setIsSecretAndDisabled(true);
         _matrixAlpha->setIsSecretAndDisabled(true);
+        _x1->setIsSecretAndDisabled(true);
+        _y1->setIsSecretAndDisabled(true);
+        _slope1->setIsSecretAndDisabled(true);
+        _x2->setIsSecretAndDisabled(true);
+        _y2->setIsSecretAndDisabled(true);
+        _x3->setIsSecretAndDisabled(true);
+        _y3->setIsSecretAndDisabled(true);
+        _slope3->setIsSecretAndDisabled(true);
         switch (mapping) {
             case 0:
                 _blackPoint->setIsSecretAndDisabled(false);
@@ -287,6 +490,16 @@ void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const st
                 _gamma->setIsSecretAndDisabled(false);
                 break;
             case 2:
+                _x1->setIsSecretAndDisabled(false);
+                _y1->setIsSecretAndDisabled(false);
+                _slope1->setIsSecretAndDisabled(false);
+                _x2->setIsSecretAndDisabled(false);
+                _y2->setIsSecretAndDisabled(false);
+                _x3->setIsSecretAndDisabled(false);
+                _y3->setIsSecretAndDisabled(false);
+                _slope3->setIsSecretAndDisabled(false);
+                break;
+            case 3:
                 _matrixRed->setIsSecretAndDisabled(false);
                 _matrixGreen->setIsSecretAndDisabled(false);
                 _matrixBlue->setIsSecretAndDisabled(false);
@@ -321,9 +534,10 @@ void EstimateGradePlugin::estimate(double time) {
     switch (mapping) {
         case 0:
         case 1:
+        case 2:
             estimateCurve(time, mapping, samples, iterations, srcImg.get(), trgImg.get(), components, isect, horizScale);
             break;
-        case 2:
+        case 3:
             estimateMatrix(time, samples, iterations, srcImg.get(), trgImg.get(), components, isect, horizScale);
             break;
     }
@@ -382,6 +596,10 @@ void EstimateGradePlugin::estimateCurve(
     double centrePoint[4];
     double slope[4];
     double gamma[4];
+    double x1[4], y1[4], slope1[4], x2[4], y2[4], x3[4], y3[4], slope3[4];
+
+    int nParams = 3;
+    if (mapping == 2) {nParams = 8;}
 
     for (int c=0; c < components; c++) {
         auto srcAndTrgPtr = &(srcAndTrgs[c]);
@@ -392,32 +610,45 @@ void EstimateGradePlugin::estimateCurve(
         }
 
         gsl_multifit_nlinear_parameters fdfParams = gsl_multifit_nlinear_default_parameters();
-        gsl_multifit_nlinear_workspace * w = gsl_multifit_nlinear_alloc(T, &fdfParams, srcAndTrgPtr->size(), 3);
+        gsl_multifit_nlinear_workspace * w = gsl_multifit_nlinear_alloc(T, &fdfParams, srcAndTrgPtr->size(), nParams);
         gsl_multifit_nlinear_fdf fdf;
 
-        double start[3];
+        std::unique_ptr<double> start(new double[nParams]);
         switch (mapping) {
             case 0:
                 fdf.f = &_gammaMappingFunction;
                 fdf.df = &_gammaMappingDerivative;
                 fdf.df = nullptr;
-                start[0] = 0;
-                start[1] = 1.0;
+                start.get()[0] = 0.0;
+                start.get()[1] = 1.0;
+                start.get()[2] = 1.0;
                 break;
             case 1:
                 fdf.f = &_sCurveMappingFunction;
                 fdf.df = &_sCurveMappingDerivative;
-                start[0] = 0.5;
-                start[1] = 1.0;
+                start.get()[0] = 0.5;
+                start.get()[1] = 1.0;
+                start.get()[2] = 1.0;
+                break;
+            case 2:
+                fdf.f = &_3PointCurveMappingFunction;
+                fdf.df = nullptr;
+                start.get()[0] = 0.0;
+                start.get()[1] = 0.0;
+                start.get()[2] = 1.0;
+                start.get()[3] = 0.5;
+                start.get()[4] = 0.5;
+                start.get()[5] = 1.0;
+                start.get()[6] = 1.0;
+                start.get()[7] = 1.0;
                 break;
         }
-        start[2] = 1.0;
 
         fdf.n = srcAndTrgPtr->size();
-        fdf.p = 3;
+        fdf.p = nParams;
         fdf.params = srcAndTrgPtr;
         
-        gsl_vector_view startView = gsl_vector_view_array(start, 3);
+        gsl_vector_view startView = gsl_vector_view_array(start.get(), nParams);
         std::unique_ptr<double> weights(new double[srcAndTrgPtr->size()]);
         for (int i=0; i < srcAndTrgPtr->size(); i++) {weights.get()[i] = 1;}
         gsl_vector_view weightsView = gsl_vector_view_array(weights.get(), srcAndTrgPtr->size());
@@ -431,15 +662,26 @@ void EstimateGradePlugin::estimateCurve(
             case 0:
                 blackPoint[c] = gsl_vector_get(w->x, 0);
                 whitePoint[c] = gsl_vector_get(w->x, 1);
+                gamma[c] = gsl_vector_get(w->x, 2);
                 break;
             case 1:
                 centrePoint[c] = gsl_vector_get(w->x, 0);
                 slope[c] = gsl_vector_get(w->x, 1);
+                gamma[c] = gsl_vector_get(w->x, 2);
+                break;
+            case 2:
+                x1[c] = gsl_vector_get(w->x, 0);
+                y1[c] = gsl_vector_get(w->x, 1);
+                slope1[c] = gsl_vector_get(w->x, 2);
+                x2[c] = gsl_vector_get(w->x, 3);
+                y2[c] = gsl_vector_get(w->x, 4);
+                x3[c] = gsl_vector_get(w->x, 5);
+                y3[c] = gsl_vector_get(w->x, 6);
+                slope3[c] = gsl_vector_get(w->x, 7);
                 break;
         }
-        gamma[c] = gsl_vector_get(w->x, 2);
 
-        printf("done %d: %d. %f %f %f\n", c, status, gsl_vector_get(w->x, 0), gsl_vector_get(w->x, 1), gsl_vector_get(w->x, 2));
+        // printf("done %d: %d. %f %f %f\n", c, status, gsl_vector_get(w->x, 0), gsl_vector_get(w->x, 1), gsl_vector_get(w->x, 2));
 
         gsl_multifit_nlinear_free(w);
     }
@@ -448,13 +690,24 @@ void EstimateGradePlugin::estimateCurve(
         case 0:
             _blackPoint->setValue(blackPoint[0], blackPoint[1], blackPoint[2], blackPoint[3]);
             _whitePoint->setValue(whitePoint[0], whitePoint[1], whitePoint[2], whitePoint[3]);
+            _gamma->setValue(gamma[0], gamma[1], gamma[2], gamma[3]);
             break;
         case 1:
             _centrePoint->setValue(centrePoint[0], centrePoint[1], centrePoint[2], centrePoint[3]);
             _slope->setValue(slope[0], slope[1], slope[2], slope[3]);
+            _gamma->setValue(gamma[0], gamma[1], gamma[2], gamma[3]);
+            break;
+        case 2:
+            _x1->setValue(x1[0], x1[1], x1[2], x1[3]);
+            _y1->setValue(y1[0], y1[1], y1[2], y1[3]);
+            _slope1->setValue(slope1[0], slope1[1], slope1[2], slope1[3]);
+            _x2->setValue(x2[0], x2[1], x2[2], x2[3]);
+            _y2->setValue(y2[0], y2[1], y2[2], y2[3]);
+            _x3->setValue(x3[0], x3[1], x3[2], x3[3]);
+            _y3->setValue(y3[0], y3[1], y3[2], y3[3]);
+            _slope3->setValue(slope3[0], slope3[1], slope3[2], slope3[3]);
             break;
     }
-    _gamma->setValue(gamma[0], gamma[1], gamma[2], gamma[3]);
 }
 
 void EstimateGradePlugin::estimateMatrix(
