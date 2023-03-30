@@ -63,6 +63,7 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
         param->setHint(kParamMappingHint);
         param->appendOption("Gamma");
         param->appendOption("S-Curve");
+        param->appendOption("3-Point-Curve");
         param->appendOption("Matrix");
         param->setAnimates(false);
         if (page) {
@@ -177,6 +178,70 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
         param->setLabel(kParamMatrixAlphaLabel);
         param->setHint(kParamMatrixAlphaHint);
         param->setDefault(0, 0, 0, 1);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamX1);
+        param->setDefault(0, 0, 0, 0);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamY1);
+        param->setDefault(0, 0, 0, 0);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamSlope1);
+        param->setDefault(1, 1, 1, 1);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamX2);
+        param->setDefault(0.5, 0.5, 0.5, 0.5);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamY2);
+        param->setDefault(0.5, 0.5, 0.5, 0.5);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamX3);
+        param->setDefault(1, 1, 1, 1);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamY3);
+        param->setDefault(1, 1, 1, 1);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBAParam(kParamSlope3);
+        param->setDefault(1, 1, 1, 1);
         param->setIsSecretAndDisabled(true);
         if (page) {
             page->addChild(*param);
