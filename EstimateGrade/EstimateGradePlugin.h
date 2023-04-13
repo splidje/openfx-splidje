@@ -53,20 +53,18 @@ using namespace OFX;
 #define kParamGammaHint "Gamma"
 
 #define kParamMatrixRed "matrixRed"
-#define kParamMatrixRedLabel "Matrix Red"
-#define kParamMatrixRedHint "Matrix Red"
+
+#define kParamMatrixRedSq "matrixRedSq"
 
 #define kParamMatrixGreen "matrixGreen"
-#define kParamMatrixGreenLabel "Matrix Green"
-#define kParamMatrixGreenHint "Matrix Green"
+
+#define kParamMatrixGreenSq "matrixGreenSq"
 
 #define kParamMatrixBlue "matrixBlue"
-#define kParamMatrixBlueLabel "Matrix Blue"
-#define kParamMatrixBlueHint "Matrix Blue"
 
-#define kParamMatrixAlpha "matrixAlpha"
-#define kParamMatrixAlphaLabel "Matrix Alpha"
-#define kParamMatrixAlphaHint "Matrix Alpha"
+#define kParamMatrixBlueSq "matrixBlueSq"
+
+#define kParamMatrixOne "matrixOne"
 
 #define kParamX1 "x1"
 
@@ -125,10 +123,13 @@ private:
     RGBAParam* _centrePoint;
     RGBAParam* _slope;
     RGBAParam* _gamma;
-    RGBAParam* _matrixRed;
-    RGBAParam* _matrixGreen;
-    RGBAParam* _matrixBlue;
-    RGBAParam* _matrixAlpha;
+    RGBParam* _matrixRed;
+    RGBParam* _matrixRedSq;
+    RGBParam* _matrixGreen;
+    RGBParam* _matrixGreenSq;
+    RGBParam* _matrixBlue;
+    RGBParam* _matrixBlueSq;
+    RGBParam* _matrixOne;
     RGBAParam* _x1;
     RGBAParam* _y1;
     RGBAParam* _slope1;

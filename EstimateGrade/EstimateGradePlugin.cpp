@@ -44,10 +44,13 @@ EstimateGradePlugin::EstimateGradePlugin(OfxImageEffectHandle handle)
     _centrePoint = fetchRGBAParam(kParamCentrePoint);
     _slope = fetchRGBAParam(kParamSlope);
     _gamma = fetchRGBAParam(kParamGamma);
-    _matrixRed = fetchRGBAParam(kParamMatrixRed);
-    _matrixGreen = fetchRGBAParam(kParamMatrixGreen);
-    _matrixBlue = fetchRGBAParam(kParamMatrixBlue);
-    _matrixAlpha = fetchRGBAParam(kParamMatrixAlpha);
+    _matrixRed = fetchRGBParam(kParamMatrixRed);
+    _matrixRedSq = fetchRGBParam(kParamMatrixRedSq);
+    _matrixGreen = fetchRGBParam(kParamMatrixGreen);
+    _matrixGreenSq = fetchRGBParam(kParamMatrixGreenSq);
+    _matrixBlue = fetchRGBParam(kParamMatrixBlue);
+    _matrixBlueSq = fetchRGBParam(kParamMatrixBlueSq);
+    _matrixOne = fetchRGBParam(kParamMatrixOne);
     _x1 = fetchRGBAParam(kParamX1);
     _y1 = fetchRGBAParam(kParamY1);
     _slope1 = fetchRGBAParam(kParamSlope1);
@@ -327,13 +330,15 @@ int _3PointCurveMappingFunction(const gsl_vector *x, void *data, gsl_vector *f) 
 }
 
 
-void _matrixMapping(const double* srcVal, const double matrix[4][4], double* dstVal) {
-    for (int r=0; r < 4; r++) {
+void _matrixMapping(const double* srcVal, const double matrix[7][3], double* dstVal) {
+    for (int r=0; r < 3; r++) {
         dstVal[r] = 0;
-        for (int c=0; c < 4; c++) {
-            dstVal[r] += srcVal[c] * matrix[r][c];
+        for (int c=0; c < 3; c++) {
+            dstVal[r] += srcVal[c] * matrix[c << 1][r] + pow(srcVal[c], 2) * matrix[(c << 1) + 1][r];
         }
+        dstVal[r] += matrix[6][r];
     }
+    dstVal[3] = srcVal[3];
 }
 
 void EstimateGradePlugin::render(const RenderArguments &args)
@@ -421,19 +426,21 @@ void EstimateGradePlugin::renderCurve(const RenderArguments &args, int mapping, 
     }
 }
 
-void fillArrayFromRGBA(double* array, OfxRGBAColourD rgba) {
+void fillArrayFromRGB(double* array, OfxRGBColourD rgba) {
     array[0] = rgba.r;
     array[1] = rgba.g;
     array[2] = rgba.b;
-    array[3] = rgba.a;
 }
 
 void EstimateGradePlugin::renderMatrix(const RenderArguments &args, Image* srcImg, Image* dstImg, int components) {
-    double matrix[4][4];
-    fillArrayFromRGBA(matrix[0], _matrixRed->getValueAtTime(args.time));
-    fillArrayFromRGBA(matrix[1], _matrixGreen->getValueAtTime(args.time));
-    fillArrayFromRGBA(matrix[2], _matrixBlue->getValueAtTime(args.time));
-    fillArrayFromRGBA(matrix[3], _matrixAlpha->getValueAtTime(args.time));
+    double matrix[7][3];
+    fillArrayFromRGB(matrix[0], _matrixRed->getValueAtTime(args.time));
+    fillArrayFromRGB(matrix[1], _matrixRedSq->getValueAtTime(args.time));
+    fillArrayFromRGB(matrix[2], _matrixGreen->getValueAtTime(args.time));
+    fillArrayFromRGB(matrix[3], _matrixGreenSq->getValueAtTime(args.time));
+    fillArrayFromRGB(matrix[4], _matrixBlue->getValueAtTime(args.time));
+    fillArrayFromRGB(matrix[5], _matrixBlueSq->getValueAtTime(args.time));
+    fillArrayFromRGB(matrix[6], _matrixOne->getValueAtTime(args.time));
     for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {        
         for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
             auto srcPix = (float*)srcImg->getPixelAddress(x, y);
@@ -467,9 +474,12 @@ void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const st
         _slope->setIsSecretAndDisabled(true);
         _gamma->setIsSecretAndDisabled(true);
         _matrixRed->setIsSecretAndDisabled(true);
+        _matrixRedSq->setIsSecretAndDisabled(true);
         _matrixGreen->setIsSecretAndDisabled(true);
+        _matrixGreenSq->setIsSecretAndDisabled(true);
         _matrixBlue->setIsSecretAndDisabled(true);
-        _matrixAlpha->setIsSecretAndDisabled(true);
+        _matrixBlueSq->setIsSecretAndDisabled(true);
+        _matrixOne->setIsSecretAndDisabled(true);
         _x1->setIsSecretAndDisabled(true);
         _y1->setIsSecretAndDisabled(true);
         _slope1->setIsSecretAndDisabled(true);
@@ -501,9 +511,12 @@ void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const st
                 break;
             case 3:
                 _matrixRed->setIsSecretAndDisabled(false);
+                _matrixRedSq->setIsSecretAndDisabled(false);
                 _matrixGreen->setIsSecretAndDisabled(false);
+                _matrixGreenSq->setIsSecretAndDisabled(false);
                 _matrixBlue->setIsSecretAndDisabled(false);
-                _matrixAlpha->setIsSecretAndDisabled(false);
+                _matrixBlueSq->setIsSecretAndDisabled(false);
+                _matrixOne->setIsSecretAndDisabled(false);
                 break;
         }
     }
@@ -720,22 +733,25 @@ void EstimateGradePlugin::estimateMatrix(
             auto srcPix = (float*)srcImg->getPixelAddress(x, y);
             auto trgPix = (float*)trgImg->getPixelAddress(round(x / horizScale), y);
             if (!srcPix || !trgPix) {continue;}
-            double* srcVal = new double[4];
-            double* trgVal = new double[4];
+            double* srcVal = new double[7];
+            double* trgVal = new double[3];
             bool skip = false;
-            for (int c=0; c < 4; c++, srcPix++, trgPix++) {
+            for (int c=0; c < 3; c++, srcPix++, trgPix++) {
                 if (c < components) {
                     if (std::isnan(*srcPix) || std::isnan(*trgPix)) {
                         std::cout << "nan detected" << x << "," << y << ";" << c << std::endl;
                         skip = true;
                         break;
                     }
-                    srcVal[c] = *srcPix;
+                    srcVal[c << 1] = *srcPix;
+                    srcVal[(c << 1) + 1] = pow(*srcPix, 2);
                     trgVal[c] = *trgPix;
                 } else {
-                    srcVal[c] = 0;
+                    srcVal[c << 1] = 0;
+                    srcVal[(c << 1) + 1] = 0;
                     trgVal[c] = 0;
                 }
+                srcVal[6] = 1;
             }
             if (skip) {continue;}
             srcVals.push_back(std::unique_ptr<double>(srcVal));
@@ -743,12 +759,14 @@ void EstimateGradePlugin::estimateMatrix(
         }
     }
 
-    gsl_matrix *srcMat = gsl_matrix_alloc(3, srcVals.size());
+    gsl_matrix *srcMat = gsl_matrix_alloc(7, srcVals.size());
     gsl_matrix *trgMat = gsl_matrix_alloc(3, srcVals.size());
 
-    for (int c=0; c < 3; c++) {
-        for (int i=0; i < srcVals.size(); i++) {
+    for (int i=0; i < srcVals.size(); i++) {
+        for (int c=0; c < 7; c++) {
             gsl_matrix_set(srcMat, c, i, srcVals[i].get()[c]);
+        }
+        for (int c=0; c < 3; c++) {
             gsl_matrix_set(trgMat, c, i, trgVals[i].get()[c]);
         }
     }
@@ -756,9 +774,13 @@ void EstimateGradePlugin::estimateMatrix(
     progressUpdate(0.4);
 
     gsl_matrix *srcTransMat = gsl_matrix_alloc(srcMat->size2, srcMat->size1);
+    std::cout << "srcTransMat " << srcTransMat->size1 << " " << srcTransMat->size2 << std::endl;
+    std::cout.flush();
     gsl_matrix_transpose_memcpy(srcTransMat, srcMat);
 
     gsl_matrix *srcSqMat = gsl_matrix_alloc(srcMat->size1, srcMat->size1);
+    std::cout << "srcSqMat " << srcSqMat->size1 << " " << srcSqMat->size2 << std::endl;
+    std::cout.flush();
     gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1, srcMat, srcTransMat, 0, srcSqMat);
 
     progressUpdate(0.5);
@@ -770,43 +792,54 @@ void EstimateGradePlugin::estimateMatrix(
     progressUpdate(0.6);
 
     gsl_matrix *srcSqInvMat = gsl_matrix_alloc(srcSqMat->size1, srcSqMat->size1);
+    std::cout << "srcSqInvMat " << srcSqInvMat->size1 << " " << srcSqInvMat->size2 << std::endl;
+    std::cout.flush();
     gsl_linalg_LU_invert(srcSqMat, perm, srcSqInvMat);
 
     progressUpdate(0.7);
 
-    gsl_matrix *trgSrcMat = gsl_matrix_alloc(srcMat->size1, srcMat->size1);
+    gsl_matrix *trgSrcMat = gsl_matrix_alloc(trgMat->size1, srcMat->size1);
+    std::cout << "trgSrcMat " << trgSrcMat->size1 << " " << trgSrcMat->size2 << std::endl;
+    std::cout.flush();
     gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1, trgMat, srcTransMat, 0, trgSrcMat);
 
     progressUpdate(0.8);
 
-    gsl_matrix *resMat = gsl_matrix_alloc(srcMat->size1, srcMat->size1);
+    gsl_matrix *resMat = gsl_matrix_alloc(trgMat->size1, srcMat->size1);
+    std::cout << "resMat " << resMat->size1 << " " << resMat->size2 << std::endl;
+    std::cout.flush();
     gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1, trgSrcMat, srcSqInvMat, 0, resMat);
 
     progressUpdate(0.9);
 
     std::cout << "M = ";
-    for (size_t i = 0; i < resMat->size1; ++i) {
-        OfxRGBAColourD col;
-        for (size_t j = 0; j < resMat->size2; ++j) {
+    OfxRGBColourD col;
+    for (size_t j = 0; j < resMat->size2; ++j) {
+        for (size_t i = 0; i < resMat->size1; ++i) {
             auto val = gsl_matrix_get(resMat, i, j);
             std::cout << val << " ";
             std::cout.flush();
-            switch (j) {
+            switch (i) {
                 case 0: col.r = val; break;
                 case 1: col.g = val; break;
                 case 2: col.b = val; break;
-                case 3: col.a = val; break;
             }
         }
-        switch (i) {
+        switch (j) {
             case 0:
-                _matrixRed->setValue(col.r, col.g, col.b, col.a); break;
+                _matrixRed->setValue(col.r, col.g, col.b); break;
             case 1:
-                _matrixGreen->setValue(col.r, col.g, col.b, col.a); break;
+                _matrixRedSq->setValue(col.r, col.g, col.b); break;
             case 2:
-                _matrixBlue->setValue(col.r, col.g, col.b, col.a); break;
+                _matrixGreen->setValue(col.r, col.g, col.b); break;
             case 3:
-                _matrixAlpha->setValue(col.r, col.g, col.b, col.a); break;
+                _matrixGreenSq->setValue(col.r, col.g, col.b); break;
+            case 4:
+                _matrixBlue->setValue(col.r, col.g, col.b); break;
+            case 5:
+                _matrixBlueSq->setValue(col.r, col.g, col.b); break;
+            case 6:
+                _matrixOne->setValue(col.r, col.g, col.b); break;
         }
         std::cout << std::endl;
     }

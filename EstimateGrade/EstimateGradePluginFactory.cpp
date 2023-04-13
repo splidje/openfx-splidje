@@ -144,40 +144,56 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
         }
     }
     {
-        auto param = desc.defineRGBAParam(kParamMatrixRed);
-        param->setLabel(kParamMatrixRedLabel);
-        param->setHint(kParamMatrixRedHint);
-        param->setDefault(1, 0, 0, 0);
+        auto param = desc.defineRGBParam(kParamMatrixRed);
+        param->setDefault(1, 0, 0);
         param->setIsSecretAndDisabled(true);
         if (page) {
             page->addChild(*param);
         }
     }
     {
-        auto param = desc.defineRGBAParam(kParamMatrixGreen);
-        param->setLabel(kParamMatrixGreenLabel);
-        param->setHint(kParamMatrixGreenHint);
-        param->setDefault(0, 1, 0, 0);
+        auto param = desc.defineRGBParam(kParamMatrixRedSq);
+        param->setDefault(0, 0, 0);
         param->setIsSecretAndDisabled(true);
         if (page) {
             page->addChild(*param);
         }
     }
     {
-        auto param = desc.defineRGBAParam(kParamMatrixBlue);
-        param->setLabel(kParamMatrixBlueLabel);
-        param->setHint(kParamMatrixBlueHint);
-        param->setDefault(0, 0, 1, 0);
+        auto param = desc.defineRGBParam(kParamMatrixGreen);
+        param->setDefault(0, 1, 0);
         param->setIsSecretAndDisabled(true);
         if (page) {
             page->addChild(*param);
         }
     }
     {
-        auto param = desc.defineRGBAParam(kParamMatrixAlpha);
-        param->setLabel(kParamMatrixAlphaLabel);
-        param->setHint(kParamMatrixAlphaHint);
-        param->setDefault(0, 0, 0, 1);
+        auto param = desc.defineRGBParam(kParamMatrixGreenSq);
+        param->setDefault(0, 0, 0);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBParam(kParamMatrixBlue);
+        param->setDefault(0, 0, 1);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBParam(kParamMatrixBlueSq);
+        param->setDefault(0, 0, 0);
+        param->setIsSecretAndDisabled(true);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+    {
+        auto param = desc.defineRGBParam(kParamMatrixOne);
+        param->setDefault(0, 0, 0);
         param->setIsSecretAndDisabled(true);
         if (page) {
             page->addChild(*param);
