@@ -10,7 +10,8 @@ TranslateMapPluginFactory.o TranslateMapPlugin.o\
 FaceTrackPluginBase.o\
 FaceTrackPluginFactory.o FaceTrackPlugin.o FaceTrackPluginInteract.o\
 FaceTranslationMapPluginFactory.o FaceTranslationMapPlugin.o FaceTranslationMapPluginInteract.o\
-EstimateGradePluginFactory.o EstimateGradePlugin.o
+EstimateGradePluginFactory.o EstimateGradePlugin.o\
+PlotAlgebraicPluginFactory.o PlotAlgebraicPlugin.o
 
 SRCDIR = ..
 
@@ -30,7 +31,8 @@ $(SRCDIR)/TranslateMap\
 $(SRCDIR)/FaceTrackPluginBase\
 $(SRCDIR)/FaceTrack\
 $(SRCDIR)/FaceTranslationMap\
-$(SRCDIR)/EstimateGrade
+$(SRCDIR)/EstimateGrade\
+$(SRCDIR)/PlotAlgebraic
 
 CXXFLAGS += `pkg-config --cflags dlib-1 gsl`
 LINKFLAGS += `pkg-config --libs dlib-1 gsl`

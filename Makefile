@@ -1,5 +1,5 @@
 SUBDIRS = Bundle
-SUBDIRS_NOMULTI = TriangleMaths QuadrangleDistort PatchMatch OffsetMap TranslateMap FaceTrackPluginBase FaceTrack FaceTrackTranslationMap
+SUBDIRS_NOMULTI = TriangleMaths QuadrangleDistort PatchMatch OffsetMap TranslateMap FaceTrackPluginBase FaceTrack FaceTrackTranslationMap PlotAlgebraic
 
 all: subdirs
 
