@@ -34,5 +34,5 @@ $(SRCDIR)/FaceTranslationMap\
 $(SRCDIR)/EstimateGrade\
 $(SRCDIR)/PlotAlgebraic
 
-CXXFLAGS += `pkg-config --cflags dlib-1 gsl`
-LINKFLAGS += `pkg-config --libs dlib-1 gsl`
+CXXFLAGS += `pkg-config --cflags dlib-1 gsl eigen3`
+LINKFLAGS += `pkg-config --libs dlib-1 gsl eigen3`

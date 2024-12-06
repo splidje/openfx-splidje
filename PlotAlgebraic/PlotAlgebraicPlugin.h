@@ -1,6 +1,7 @@
 #include "ofxsImageEffect.h"
 #include "ofxsMacros.h"
 #include <iostream>
+#include <unsupported/Eigen/Polynomials>
 
 using namespace OFX;
 
@@ -15,6 +16,19 @@ using namespace OFX;
 
 #define kSourceClip "Source"
 
+#define kParamRandomSeed "seed"
+#define kParamRandomSeedLabel "Random Seed"
+
+#define kParamMaxCoeff "maxCoeff"
+#define kParamMaxCoeffLabel "Max Coefficient"
+
+#define kParamMaxRoot "maxRoot"
+#define kParamMaxRootLabel "Max Complex Root"
+
+#define kParamNumIters "numIters"
+#define kParamNumItersLabel "Number of Iterations"
+
+#define NUM_COEFFS 5
 
 class PlotAlgebraicPlugin : public ImageEffect
 {
@@ -28,4 +42,10 @@ private:
 private:
     Clip* _srcClip;
     Clip* _dstClip;
+    IntParam* _randomSeed;
+    IntParam* _maxCoeff;
+    Double2DParam* _maxRoot;
+    IntParam* _numIters;
+    Eigen::Matrix<double, NUM_COEFFS, 1> _coeffs;
+    Eigen::PolynomialSolver<double, NUM_COEFFS - 1> _solver;
 };

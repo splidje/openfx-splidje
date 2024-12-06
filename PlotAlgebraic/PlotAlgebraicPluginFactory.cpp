@@ -31,6 +31,7 @@ void PlotAlgebraicPluginFactory::describeInContext(ImageEffectDescriptor &desc, 
 {
     // create the mandated source clip
     ClipDescriptor *srcClip = desc.defineClip(kSourceClip);
+    srcClip->setOptional(true);
     srcClip->addSupportedComponent(ePixelComponentRGB);
     srcClip->addSupportedComponent(ePixelComponentRGBA);
     srcClip->addSupportedComponent(ePixelComponentAlpha);
@@ -47,19 +48,39 @@ void PlotAlgebraicPluginFactory::describeInContext(ImageEffectDescriptor &desc, 
     dstClip->setSupportsTiles(true);
 
     PageParamDescriptor *page = desc.definePageParam("Controls");
-    // {
-    //     auto param = desc.defineChoiceParam(kParamMapping);
-    //     param->setLabel(kParamMappingLabel);
-    //     param->setHint(kParamMappingHint);
-    //     param->appendOption("Gamma");
-    //     param->appendOption("S-Curve");
-    //     param->appendOption("3-Point-Curve");
-    //     param->appendOption("Matrix");
-    //     param->setAnimates(false);
-    //     if (page) {
-    //         page->addChild(*param);
-    //     }
-    // }
+    {
+        auto param = desc.defineIntParam(kParamRandomSeed);
+        param->setLabel(kParamRandomSeedLabel);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+
+    {
+        auto param = desc.defineIntParam(kParamMaxCoeff);
+        param->setLabel(kParamMaxCoeffLabel);
+        param->setDefault(1023);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+
+    {
+        auto param = desc.defineDouble2DParam(kParamMaxRoot);
+        param->setLabel(kParamMaxRootLabel);
+        param->setDefault(10, 10);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+
+    {
+        auto param = desc.defineIntParam(kParamNumIters);
+        param->setLabel(kParamNumItersLabel);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
 }
 
 ImageEffect* PlotAlgebraicPluginFactory::createInstance(OfxImageEffectHandle handle, ContextEnum /*context*/)
