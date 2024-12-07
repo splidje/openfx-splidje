@@ -1,11 +1,12 @@
 #include "EstimateGradePlugin.h"
 #include "ofxsCoords.h"
 #include <cmath>
-#include <vector>
+#include <set>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_multifit_nlinear.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_linalg.h>
+#include <libqhull_r/libqhull_r.h>
 
 
 EstimateGradePlugin::EstimateGradePlugin(OfxImageEffectHandle handle)
@@ -353,6 +354,9 @@ void EstimateGradePlugin::render(const RenderArguments &args)
         case 3:
             renderMatrix(args, srcImg.get(), dstImg.get(), components);
             break;
+        case 4:
+            renderCube(args, srcImg.get(), dstImg.get(), components);
+            break;
     }
 }
 
@@ -456,6 +460,55 @@ void EstimateGradePlugin::renderMatrix(const RenderArguments &args, Image* srcIm
     }
 }
 
+void EstimateGradePlugin::renderCube(const RenderArguments &args, Image* srcImg, Image* dstImg, int components) {
+    for (int y=args.renderWindow.y1; y < args.renderWindow.y2; y++) {        
+        for (int x=args.renderWindow.x1; x < args.renderWindow.x2; x++) {
+            auto srcPix = (float*)srcImg->getPixelAddress(x, y);
+            auto dstPix = (float*)dstImg->getPixelAddress(x, y);
+            if (!srcPix || !dstPix) {continue;}
+            dstPix[3] = srcPix[3];
+
+            // TODO: for each tetra and source RGB
+            for (int i=0; i < _cube_src_tetrahedra.size(); i++) {
+                auto tetra = _cube_src_tetrahedra[i];
+                auto bounds_minimum = _cube_src_tetrahedron_bounds_minimum[i];
+                auto bounds_maximum = _cube_src_tetrahedron_bounds_maximum[i];
+                bool inside_bounds = true;
+                for (int c=0; c < 3; c++) {
+                    inside_bounds = srcPix[c] < bounds_minimum[c] || srcPix[c] > bounds_maximum[c];
+                    if (!inside_bounds) {break;}
+                }
+                if (!inside_bounds) {continue;}
+
+                auto barycentric_coordinates = _cube_src_tetrahedron_inverse_barycentric_matrices[i] * Eigen::Vector4d(srcPix[0], srcPix[1], srcPix[2], 1.0);
+                for (int c=0; c < 3; c++) {
+                    inside_bounds = barycentric_coordinates[c] >= 0;
+                    if (!inside_bounds) {break;}
+                }
+                if (!inside_bounds) {continue;}
+
+                Eigen::Matrix4d trg_matrix;
+                for (int j=0; j < 4; j++) {
+                    auto trg_point = _cube_trg_points.data() + tetra[j] * 3;
+                    trg_matrix.row(j) = Eigen::RowVector4d(trg_point[0], trg_point[1], trg_point[2], 1.0);
+                }
+                auto trg_vector = trg_matrix * barycentric_coordinates;
+                for (int c=0; c < 3; c++) {
+                    dstPix[c] = trg_vector(c);
+                }
+                break;
+            }
+
+        }
+    }
+
+    // check if inside bounds
+    // if so multiply source colours by inverse barycentric matrix.
+    // if all positive then it's inside.
+    // multply M * lambda (M is dst tetra points with extra 1)
+    // That gives you the out RGB
+}
+
 void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
     if (paramName == kParamEstimate) {
         estimate(args.time);
@@ -478,6 +531,7 @@ void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const st
         _x3->setIsSecretAndDisabled(true);
         _y3->setIsSecretAndDisabled(true);
         _slope3->setIsSecretAndDisabled(true);
+        _iterations->setIsSecretAndDisabled(false);
         switch (mapping) {
             case 0:
                 _blackPoint->setIsSecretAndDisabled(false);
@@ -504,6 +558,8 @@ void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const st
                 _matrixGreen->setIsSecretAndDisabled(false);
                 _matrixBlue->setIsSecretAndDisabled(false);
                 _matrixAlpha->setIsSecretAndDisabled(false);
+            case 4:
+                _iterations->setIsSecretAndDisabled(true);
                 break;
         }
     }
@@ -538,8 +594,10 @@ void EstimateGradePlugin::estimate(double time) {
             estimateCurve(time, mapping, samples, iterations, srcImg.get(), trgImg.get(), components, isect, horizScale);
             break;
         case 3:
-            estimateMatrix(time, samples, iterations, srcImg.get(), trgImg.get(), components, isect, horizScale);
+            estimateMatrix(time, samples, srcImg.get(), trgImg.get(), components, isect, horizScale);
             break;
+        case 4:
+            estimateCube(time, samples, srcImg.get(), trgImg.get(), components, isect, horizScale);
     }
 
     progressEnd();
@@ -710,13 +768,14 @@ void EstimateGradePlugin::estimateCurve(
     }
 }
 
-void EstimateGradePlugin::estimateMatrix(
-    double time, int samples, int iterations, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale
+void _readSourceAndTargetVals(
+    int samples, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale, std::vector<std::unique_ptr<double>>& srcVals, std::vector<std::unique_ptr<double>>& trgVals
 ) {
-    std::vector<std::unique_ptr<double>> srcVals;
-    std::vector<std::unique_ptr<double>> trgVals;
-    for (auto y=isect.y1; y < isect.y2; y+=100) {        
-        for (auto x=isect.x1; x < isect.x2; x+=100) {
+    auto samples_sqrt = sqrt(samples);
+    auto x_step = std::max(1, int((isect.x2 - isect.x1) / samples_sqrt));
+    auto y_step = std::max(1, int((isect.y2 - isect.y1) / samples_sqrt));
+    for (auto y=isect.y1; y < isect.y2; y+=y_step) {
+        for (auto x=isect.x1; x < isect.x2; x+=x_step) {
             auto srcPix = (float*)srcImg->getPixelAddress(x, y);
             auto trgPix = (float*)trgImg->getPixelAddress(round(x / horizScale), y);
             if (!srcPix || !trgPix) {continue;}
@@ -740,8 +799,22 @@ void EstimateGradePlugin::estimateMatrix(
             if (skip) {continue;}
             srcVals.push_back(std::unique_ptr<double>(srcVal));
             trgVals.push_back(std::unique_ptr<double>(trgVal));
+            if (srcVals.size() == samples) {
+                break;
+            }
+        }
+        if (srcVals.size() == samples) {
+            break;
         }
     }
+}
+
+void EstimateGradePlugin::estimateMatrix(
+    double time, int samples, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale
+) {
+    std::vector<std::unique_ptr<double>> srcVals;
+    std::vector<std::unique_ptr<double>> trgVals;
+    _readSourceAndTargetVals(samples, srcImg, trgImg, components, isect, horizScale, srcVals, trgVals);
 
     gsl_matrix *srcMat = gsl_matrix_alloc(3, srcVals.size());
     gsl_matrix *trgMat = gsl_matrix_alloc(3, srcVals.size());
@@ -820,4 +893,101 @@ void EstimateGradePlugin::estimateMatrix(
     gsl_matrix_free(srcSqInvMat);
     gsl_matrix_free(trgSrcMat);
     gsl_matrix_free(resMat);
+}
+
+void _print_point(std::array<double, 3>& arr) {
+    for (int i=0; i < 3; i++) {
+        std::cout << arr[i] << ", ";
+    }
+    std::cout << std::endl;
+}
+
+void EstimateGradePlugin::estimateCube(
+    double time, int samples, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale
+) {
+    std::vector<std::unique_ptr<double>> srcVals, trgVals;
+    _readSourceAndTargetVals(samples, srcImg, trgImg, components, isect, horizScale, srcVals, trgVals);
+    
+    std::set<point3d_t> taken_points;
+
+    _cube_src_points.clear();
+    _cube_trg_points.clear();
+    for (int i=0; i < srcVals.size(); i++) {
+        auto srcVal = srcVals[i].get();
+        point3d_t src_point(srcVal[0], srcVal[1], srcVal[2]);
+        if (taken_points.find(src_point) != taken_points.end()) {
+            continue;
+        }
+        taken_points.insert(src_point);
+        auto trgVal = trgVals[i].get();
+        _cube_src_points.push_back(std::get<0>(src_point));
+        _cube_src_points.push_back(std::get<1>(src_point));
+        _cube_src_points.push_back(std::get<2>(src_point));
+        _cube_trg_points.push_back(trgVal[0]);
+        _cube_trg_points.push_back(trgVal[1]);
+        _cube_trg_points.push_back(trgVal[2]);
+    }
+
+    for (double z=0; z < 2; z++) {
+        for (double y=0; y < 2; y++) {
+            for (double x=0; x < 2; x++) {
+                point3d_t corner(x, y, z);
+                if (taken_points.find(corner) != taken_points.end()) {
+                    continue;
+                }
+                for (auto v : {x,y,z}) {
+                    _cube_src_points.push_back(v);
+                    _cube_trg_points.push_back(v);
+                }
+            }
+        }
+    }
+
+    qhT qh_local;
+    auto qh = &qh_local;
+    qh_zero(qh, stderr);
+
+    if (qh_new_qhull(qh, 3, _cube_src_points.size() / 3, _cube_src_points.data(), 0, "qhull d Qbb", stdout, stderr)) {
+        std::cerr << "Qhull error: failed to compute Delaunay triangulation." << std::endl;
+        return;
+    }
+
+    _cube_src_tetrahedra.clear();
+    _cube_src_tetrahedron_inverse_barycentric_matrices.clear();
+    facetT* facet;
+    bool a = false;
+    FORALLfacets {
+        if (facet->toporient && facet->simplicial) {
+            std::vector<int> tetra;
+            vertexT* vertex, **vertexp;
+            Eigen::Matrix4d barycentric_matrix;
+            int r = 0;
+            std::array<double, 3> bounds_minimum, bounds_maximum;
+            FOREACHvertex_(facet->vertices) {
+                tetra.push_back(qh_pointid(qh, vertex->point));
+                if (!r) {
+                    for (int c=0; c < 3; c++) {
+                        bounds_minimum[c] = bounds_maximum[c] = vertex->point[c];
+                    }
+                } else {
+                    for (int c=0; c < 3; c++) {
+                        bounds_minimum[c] = std::min(bounds_minimum[c], vertex->point[c]);
+                        bounds_maximum[c] = std::max(bounds_maximum[c], vertex->point[c]);
+                    }
+                }
+                if (r < 4) {
+                    barycentric_matrix.row(r++) = Eigen::RowVector4d(vertex->point[0], vertex->point[1], vertex->point[2], 1.0);
+                }
+            }
+            if (tetra.size() != 4) {
+                continue;
+            }
+            _cube_src_tetrahedra.push_back(tetra);
+            _cube_src_tetrahedron_inverse_barycentric_matrices.push_back(barycentric_matrix.inverse());
+            _cube_src_tetrahedron_bounds_minimum.push_back(bounds_minimum);
+            _cube_src_tetrahedron_bounds_maximum.push_back(bounds_maximum);
+            _print_point(bounds_minimum);
+            _print_point(bounds_maximum);
+        }
+    }
 }

@@ -1,6 +1,8 @@
 #include "ofxsImageEffect.h"
 #include "ofxsMacros.h"
 #include <iostream>
+#include <vector>
+#include <eigen3/Eigen/Eigen>
 
 using namespace OFX;
 
@@ -85,6 +87,9 @@ using namespace OFX;
 #define kParamSlope3 "slope3"
 
 
+typedef std::tuple<double, double, double> point3d_t;
+
+
 class EstimateGradePlugin : public ImageEffect
 {
 public:
@@ -96,6 +101,7 @@ private:
 
     void renderCurve(const RenderArguments &args, int mapping, Image* srcImg, Image* dstImg, int components);
     void renderMatrix(const RenderArguments &args, Image* srcImg, Image* dstImg, int components);
+    void renderCube(const RenderArguments &args, Image* srcImg, Image* dstImg, int components);
     
     virtual bool isIdentity(const IsIdentityArguments &args, Clip * &identityClip, double &identityTime
 #ifdef OFX_EXTENSIONS_NUKE
@@ -109,7 +115,8 @@ private:
     virtual void estimate(double time);
 
     void estimateCurve(double time, int mapping, int samples, int iterations, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale);
-    void estimateMatrix(double time, int samples, int iterations, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale);
+    void estimateMatrix(double time, int samples, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale);
+    void estimateCube(double time, int samples, Image* srcImg, Image* trgImg, int components, OfxRectI isect, double horizScale);
 
 
 private:
@@ -137,4 +144,11 @@ private:
     RGBAParam* _x3;
     RGBAParam* _y3;
     RGBAParam* _slope3;
+
+    std::vector<double> _cube_src_points;
+    std::vector<double> _cube_trg_points;
+    std::vector<std::vector<int>> _cube_src_tetrahedra;
+    std::vector<Eigen::Matrix4d> _cube_src_tetrahedron_inverse_barycentric_matrices;
+    std::vector<std::array<double, 3>> _cube_src_tetrahedron_bounds_minimum;
+    std::vector<std::array<double, 3>> _cube_src_tetrahedron_bounds_maximum;
 };

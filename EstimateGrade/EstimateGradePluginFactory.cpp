@@ -65,6 +65,7 @@ void EstimateGradePluginFactory::describeInContext(ImageEffectDescriptor &desc, 
         param->appendOption("S-Curve");
         param->appendOption("3-Point-Curve");
         param->appendOption("Matrix");
+        param->appendOption("Cube");
         param->setAnimates(false);
         if (page) {
             page->addChild(*param);

@@ -32,5 +32,5 @@ $(SRCDIR)/FaceTrack\
 $(SRCDIR)/FaceTranslationMap\
 $(SRCDIR)/EstimateGrade
 
-CXXFLAGS += `pkg-config --cflags dlib-1 gsl`
-LINKFLAGS += `pkg-config --libs dlib-1 gsl`
+CXXFLAGS += `pkg-config --cflags dlib-1 gsl qhull_r eigen3`
+LINKFLAGS += `pkg-config --libs dlib-1 gsl qhull_r eigen3`
