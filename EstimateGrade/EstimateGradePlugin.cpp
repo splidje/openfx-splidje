@@ -468,29 +468,30 @@ void EstimateGradePlugin::renderCube(const RenderArguments &args, Image* srcImg,
             if (!srcPix || !dstPix) {continue;}
             dstPix[3] = srcPix[3];
 
-            // TODO: for each tetra and source RGB
             for (int i=0; i < _cube_src_tetrahedra.size(); i++) {
                 auto tetra = _cube_src_tetrahedra[i];
                 auto bounds_minimum = _cube_src_tetrahedron_bounds_minimum[i];
                 auto bounds_maximum = _cube_src_tetrahedron_bounds_maximum[i];
                 bool inside_bounds = true;
                 for (int c=0; c < 3; c++) {
-                    inside_bounds = srcPix[c] < bounds_minimum[c] || srcPix[c] > bounds_maximum[c];
+                    inside_bounds = srcPix[c] >= bounds_minimum[c] || srcPix[c] <= bounds_maximum[c];
                     if (!inside_bounds) {break;}
                 }
                 if (!inside_bounds) {continue;}
 
                 auto barycentric_coordinates = _cube_src_tetrahedron_inverse_barycentric_matrices[i] * Eigen::Vector4d(srcPix[0], srcPix[1], srcPix[2], 1.0);
-                for (int c=0; c < 3; c++) {
+                for (int c=0; c < 4; c++) {
+                    std::cout << barycentric_coordinates[c] << " ";
                     inside_bounds = barycentric_coordinates[c] >= 0;
                     if (!inside_bounds) {break;}
                 }
+                std::cout << inside_bounds << std::endl;
                 if (!inside_bounds) {continue;}
 
                 Eigen::Matrix4d trg_matrix;
                 for (int j=0; j < 4; j++) {
                     auto trg_point = _cube_trg_points.data() + tetra[j] * 3;
-                    trg_matrix.row(j) = Eigen::RowVector4d(trg_point[0], trg_point[1], trg_point[2], 1.0);
+                    trg_matrix.col(j) = Eigen::RowVector4d(trg_point[0], trg_point[1], trg_point[2], 1.0);
                 }
                 auto trg_vector = trg_matrix * barycentric_coordinates;
                 for (int c=0; c < 3; c++) {
@@ -501,12 +502,6 @@ void EstimateGradePlugin::renderCube(const RenderArguments &args, Image* srcImg,
 
         }
     }
-
-    // check if inside bounds
-    // if so multiply source colours by inverse barycentric matrix.
-    // if all positive then it's inside.
-    // multply M * lambda (M is dst tetra points with extra 1)
-    // That gives you the out RGB
 }
 
 void EstimateGradePlugin::changedParam(const InstanceChangedArgs &args, const std::string &paramName) {
@@ -976,7 +971,7 @@ void EstimateGradePlugin::estimateCube(
                     }
                 }
                 if (r < 4) {
-                    barycentric_matrix.row(r++) = Eigen::RowVector4d(vertex->point[0], vertex->point[1], vertex->point[2], 1.0);
+                    barycentric_matrix.col(r++) = Eigen::RowVector4d(vertex->point[0], vertex->point[1], vertex->point[2], 1.0);
                 }
             }
             if (tetra.size() != 4) {
