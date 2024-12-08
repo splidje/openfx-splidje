@@ -474,19 +474,22 @@ void EstimateGradePlugin::renderCube(const RenderArguments &args, Image* srcImg,
                 auto bounds_maximum = _cube_src_tetrahedron_bounds_maximum[i];
                 bool inside_bounds = true;
                 for (int c=0; c < 3; c++) {
-                    inside_bounds = srcPix[c] >= bounds_minimum[c] || srcPix[c] <= bounds_maximum[c];
+                    inside_bounds = srcPix[c] >= bounds_minimum[c] && srcPix[c] <= bounds_maximum[c];
                     if (!inside_bounds) {break;}
                 }
                 if (!inside_bounds) {continue;}
 
                 auto barycentric_coordinates = _cube_src_tetrahedron_inverse_barycentric_matrices[i] * Eigen::Vector4d(srcPix[0], srcPix[1], srcPix[2], 1.0);
                 for (int c=0; c < 4; c++) {
-                    std::cout << barycentric_coordinates[c] << " ";
                     inside_bounds = barycentric_coordinates[c] >= 0;
                     if (!inside_bounds) {break;}
                 }
-                std::cout << inside_bounds << std::endl;
                 if (!inside_bounds) {continue;}
+
+                // for (int c=0; c < 4; c++) {
+                //     std::cout << barycentric_coordinates[c] << " ";
+                // }
+                // std::cout << std::endl;
 
                 Eigen::Matrix4d trg_matrix;
                 for (int j=0; j < 4; j++) {
@@ -774,6 +777,7 @@ void _readSourceAndTargetVals(
             auto srcPix = (float*)srcImg->getPixelAddress(x, y);
             auto trgPix = (float*)trgImg->getPixelAddress(round(x / horizScale), y);
             if (!srcPix || !trgPix) {continue;}
+
             double* srcVal = new double[4];
             double* trgVal = new double[4];
             bool skip = false;
@@ -792,6 +796,7 @@ void _readSourceAndTargetVals(
                 }
             }
             if (skip) {continue;}
+
             srcVals.push_back(std::unique_ptr<double>(srcVal));
             trgVals.push_back(std::unique_ptr<double>(trgVal));
             if (srcVals.size() == samples) {
@@ -910,9 +915,13 @@ void EstimateGradePlugin::estimateCube(
     for (int i=0; i < srcVals.size(); i++) {
         auto srcVal = srcVals[i].get();
         point3d_t src_point(srcVal[0], srcVal[1], srcVal[2]);
+        // std::cout << std::get<0>(src_point) << " " << std::get<1>(src_point) << " " << std::get<2>(src_point) << std::endl;
+
         if (taken_points.find(src_point) != taken_points.end()) {
             continue;
         }
+
+        // std::cout << "unique!" << std::endl;
         taken_points.insert(src_point);
         auto trgVal = trgVals[i].get();
         _cube_src_points.push_back(std::get<0>(src_point));
@@ -942,7 +951,7 @@ void EstimateGradePlugin::estimateCube(
     auto qh = &qh_local;
     qh_zero(qh, stderr);
 
-    if (qh_new_qhull(qh, 3, _cube_src_points.size() / 3, _cube_src_points.data(), 0, "qhull d Qbb", stdout, stderr)) {
+    if (qh_new_qhull(qh, 3, _cube_src_points.size() / 3, _cube_src_points.data(), 0, "qhull d Qbb Qz Qs", stdout, stderr)) {
         std::cerr << "Qhull error: failed to compute Delaunay triangulation." << std::endl;
         return;
     }
@@ -981,8 +990,8 @@ void EstimateGradePlugin::estimateCube(
             _cube_src_tetrahedron_inverse_barycentric_matrices.push_back(barycentric_matrix.inverse());
             _cube_src_tetrahedron_bounds_minimum.push_back(bounds_minimum);
             _cube_src_tetrahedron_bounds_maximum.push_back(bounds_maximum);
-            _print_point(bounds_minimum);
-            _print_point(bounds_maximum);
+            // _print_point(bounds_minimum);
+            // _print_point(bounds_maximum);
         }
     }
 }
