@@ -29,16 +29,6 @@ void PlotAlgebraicPluginFactory::describe(ImageEffectDescriptor &desc)
 
 void PlotAlgebraicPluginFactory::describeInContext(ImageEffectDescriptor &desc, ContextEnum context)
 {
-    // create the mandated source clip
-    ClipDescriptor *srcClip = desc.defineClip(kSourceClip);
-    srcClip->setOptional(true);
-    srcClip->addSupportedComponent(ePixelComponentRGB);
-    srcClip->addSupportedComponent(ePixelComponentRGBA);
-    srcClip->addSupportedComponent(ePixelComponentAlpha);
-    srcClip->setTemporalClipAccess(false);
-    srcClip->setSupportsTiles(true);
-    srcClip->setIsMask(false);
-
     // create the mandated output clip
     ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
     dstClip->addSupportedComponent(ePixelComponentRGB);
@@ -57,26 +47,34 @@ void PlotAlgebraicPluginFactory::describeInContext(ImageEffectDescriptor &desc, 
     }
 
     {
-        auto param = desc.defineIntParam(kParamMaxCoeff);
-        param->setLabel(kParamMaxCoeffLabel);
-        param->setDefault(1023);
+        auto param = desc.defineIntParam(kParamMaxCoefficient);
+        param->setLabel(kParamMaxCoefficientLabel);
+        param->setDefault(16);
         if (page) {
             page->addChild(*param);
         }
     }
 
     {
-        auto param = desc.defineDouble2DParam(kParamMaxRoot);
-        param->setLabel(kParamMaxRootLabel);
-        param->setDefault(10, 10);
+        auto param = desc.defineIntParam(kParamIterationCount);
+        param->setLabel(kParamIteractionCountLabel);
+        param->setDefault(1);
         if (page) {
             page->addChild(*param);
         }
     }
 
     {
-        auto param = desc.defineIntParam(kParamNumIters);
-        param->setLabel(kParamNumItersLabel);
+        auto param = desc.defineIntParam(kParamRandomSeed);
+        param->setLabel(kParamRandomSeedLabel);
+        if (page) {
+            page->addChild(*param);
+        }
+    }
+
+    {
+        auto param = desc.definePushButtonParam(kParamGenerate);
+        param->setLabel(kParamGenerateLabel);
         if (page) {
             page->addChild(*param);
         }

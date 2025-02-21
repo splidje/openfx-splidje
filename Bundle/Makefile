@@ -34,5 +34,6 @@ $(SRCDIR)/FaceTranslationMap\
 $(SRCDIR)/EstimateGrade\
 $(SRCDIR)/PlotAlgebraic
 
-CXXFLAGS += `pkg-config --cflags dlib-1 gsl eigen3`
-LINKFLAGS += `pkg-config --libs dlib-1 gsl eigen3`
+CXXFLAGS += `pkg-config --cflags dlib-1 gsl eigen3 gmp`
+LINKFLAGS += `pkg-config --libs dlib-1 gsl eigen3 gmp`
+LINKFLAGS += "-lsymengine"

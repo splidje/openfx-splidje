@@ -5,5 +5,6 @@ RESOURCES =
 SRCDIR = ..
 include $(SRCDIR)/Makefile.master
 
-CXXFLAGS += `pkg-config --cflags eigen3`
-LINKFLAGS += `pkg-config --libs eigen3`
+CXXFLAGS += `pkg-config --cflags gmp`
+LINKFLAGS += `pkg-config --libs gmp`
+LINKFLAGS += "-lsymengine"

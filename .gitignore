@@ -1,5 +1,5 @@
-Bundle/Linux-64-debug
-Bundle/Linux-64-release
+*/Linux-64-debug/
+*/Linux-64-release/
 .vscode
 
 *.jpeg
