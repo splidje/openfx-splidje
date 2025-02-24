@@ -1,6 +1,7 @@
 #include "ofxsImageEffect.h"
 #include "ofxsMacros.h"
 #include <iostream>
+#include <complex>
 
 using namespace OFX;
 
@@ -44,4 +45,5 @@ private:
     IntParam* _iterationCount;
     IntParam* _randomSeed;
     PushButtonParam* _generate;
+    std::vector<std::complex<double>> _roots;
 };
